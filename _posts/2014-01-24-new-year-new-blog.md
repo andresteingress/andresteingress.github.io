@@ -23,7 +23,7 @@ After pushing the changes to GitHub, the GitHub pages generator will recognize t
 
 As my blog is an original Wordpress blog, I needed to migrate all the existing posts and pages. There is a tool called `jekyll-import` that takes the Wordpress XML and generates separate HTML pages to be used by Jekyll. The resulting HTML files need to be slightly adapted to the needs of Jekyll. For example, all the source code examples where surrounded by a `[source language="..."]` block. In Jekyll, the `highlight ...` tag is used to surround and therefore format later on source code examples. Thus I needed a little script to convert the Jekyll generated HTML pages. 
 
-I decided to write the script in [Clojure](http://www.clojure.org). As I am currently using Clojure in another project, I thought it would be a good fit for doing a little bit more "hands-on" training.
+I decided to write the script in [Clojure](http://www.clojure.org). As I am currently using Clojure in a project, I thought it would be a good fit for doing a little bit more "hands-on" training.
 
 Here is the script that implemented various HTML transformations for my Wordpress posts:
 
