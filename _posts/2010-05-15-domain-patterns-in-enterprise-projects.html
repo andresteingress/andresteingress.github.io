@@ -89,7 +89,7 @@ def c = new Customer(status: Status.NEW, account: null)
 If we are serious about object-orientation and the role of creation procedures, we should not support creating objects in ways that generate objects which are in an invalid state after object creation, e.g. creating a customer without a <tt>state</tt>. In order to support a more object-oriented design we could modify the <tt>Customer</tt> class like this:
 
 {% highlight groovy %} 
-@Invariant({ name?.size() > 0 &amp;&amp; status &amp;&amp; account })
+@Invariant({ name?.size() > 0 && status && account })
 class Customer {
 
 	String name
@@ -123,7 +123,7 @@ First of all, we've redeclared setter methods to be only visible in package scop
 In addition, a custom constructor was added which is a way to create a <tt>Customer</tt> object being in a valid state after the constructor call. As it turns out, more complex classes would be candidates for factory methods [<a href="http://en.wikipedia.org/wiki/Factory_method_pattern">1</a>]
 
 {% highlight groovy %} 
-@Invariant({ name?.size() > 0 &amp;&amp; status &amp;&amp; account })
+@Invariant({ name?.size() > 0 && status && account })
 class Customer {
 
 	// ...
@@ -198,11 +198,11 @@ Now we start to feel that this is obviously not a good design. Just assume we ne
 A better approach would be to put the additional domain logic in the <tt>Customer</tt> class itself:
 
 {% highlight groovy %} 
-@Invariant({ name?.size() > 0 &amp;&amp; status &amp;&amp; account })
+@Invariant({ name?.size() > 0 && status && account })
 class Customer {
 
 	def boolean isTestPeriodEmailCandidate()  {
-		return state == State.REGISTERED &amp;&amp; created + 30 >= new Date()
+		return state == State.REGISTERED && created + 30 >= new Date()
 	}
 
 	// ...

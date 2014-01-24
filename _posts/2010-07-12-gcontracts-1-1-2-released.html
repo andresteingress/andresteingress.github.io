@@ -33,7 +33,7 @@ Before 1.1.2, GContracts custom handling of assertion messages prevented trigger
 {% highlight groovy %} 
 import org.gcontracts.annotations.*
 
-@Invariant({ speed >= 0 &amp;&amp; speed <= 100 })
+@Invariant({ speed >= 0 && speed <= 100 })
 class Rocket  {
     int speed
     boolean started

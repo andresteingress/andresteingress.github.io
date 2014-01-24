@@ -37,7 +37,7 @@ gcontracts comes with a set of Java annotations whereas each annotation represen
 	<li>Class-Invariants with <code>@Invariant</code>
 
 In order to specify a class-invariant use the <code>@Invariant</code> annotation e.g.
-{% highlight groovy %} @Invariant({ someProperty.size() > 0 &amp;&amp; anotherProperty == someMethod() }) {% endhighlight %}
+{% highlight groovy %} @Invariant({ someProperty.size() > 0 && anotherProperty == someMethod() }) {% endhighlight %}
 An <code>@Invariant</code> annotation's closure has access to:
 <table>
 <tbody>
@@ -63,7 +63,7 @@ An <code>@Invariant</code> annotation's closure has access to:
 	<li>Preconditions with <code>@Requires</code>
 
 In order to specify preconditions on methods, use the <code>@Requires</code> annotation e.g.
-{% highlight groovy %} @Requires({ someProperty.size() > 0 &amp;&amp; anotherProperty == someMethod() }) {% endhighlight %}
+{% highlight groovy %} @Requires({ someProperty.size() > 0 && anotherProperty == someMethod() }) {% endhighlight %}
 A <code>@Requires</code> annotation's closure has access to:
 <table>
 <tbody>
@@ -93,7 +93,7 @@ A <code>@Requires</code> annotation's closure has access to:
 	<li>Postconditions with <code>@Ensures</code>
 
 In order to specify postconditions on methods, use the <code>@Ensures</code> annotation e.g.
-{% highlight groovy %} @Ensures({ someProperty.size() > 0 &amp;&amp; anotherProperty == someMethod() }) {% endhighlight %}
+{% highlight groovy %} @Ensures({ someProperty.size() > 0 && anotherProperty == someMethod() }) {% endhighlight %}
 An <code>@Ensures</code> annotation's closure has access to:
 <table>
 <tbody>
@@ -131,8 +131,8 @@ An <code>@Ensures</code> annotation's closure has access to:
 Of course, the variable map does not contain copies of you domain's entity classes, it works with Java's built-in data types only, e.g. primitive values, reference types like <code>Integer</code>, <code>Boolean</code>, <code>Calendar</code>, <code>Date</code> and so on.
 
 By the way, you can even use both closure parameters in the same closure, e.g.
-{% highlight groovy %} @Ensures({ old, result -> old.field1 != field1 &amp;&amp; result != field1 }) {% endhighlight %} or
-{% highlight groovy %} @Ensures({ result, old -> old.field1 != field1 &amp;&amp; result != field1 }) {% endhighlight %}
+{% highlight groovy %} @Ensures({ old, result -> old.field1 != field1 && result != field1 }) {% endhighlight %} or
+{% highlight groovy %} @Ensures({ result, old -> old.field1 != field1 && result != field1 }) {% endhighlight %}
 
 </td>
 </tr>

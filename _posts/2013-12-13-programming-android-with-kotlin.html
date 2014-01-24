@@ -257,7 +257,7 @@ trait ViewPagerFlavour : FragmentActivity {
         }
 
         imageUrls.forEach {
-            if (it.isNotEmpty() &amp;&amp; "noimage" != it)  {
+            if (it.isNotEmpty() && "noimage" != it)  {
                 val imageFragement = ImageFragement.newInstance(this, it)
                 imageFragement!!.teaserImageLoaderEvents = object : TeaserImageLoaderEvents {
 
@@ -359,7 +359,7 @@ object Network {
     fun isOnline(ctx : Context) : Boolean {
         val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
         val netInfo = cm.getActiveNetworkInfo()
-        return netInfo != null &amp;&amp; netInfo.isConnectedOrConnecting()
+        return netInfo != null && netInfo.isConnectedOrConnecting()
     }
 }
  {% endhighlight %}

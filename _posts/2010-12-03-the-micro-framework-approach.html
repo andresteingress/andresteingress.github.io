@@ -74,7 +74,7 @@ class Session {
 
     def load(Class<?> domainClassType, Long identifier)  {
 
-        if (identityMap[domainClassType] &amp;&amp; identityMap[domainClassType][identifier])  {
+        if (identityMap[domainClassType] && identityMap[domainClassType][identifier])  {
             return identityMap[domainClassType][identifier]
         }
 

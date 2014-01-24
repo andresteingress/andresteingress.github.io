@@ -49,7 +49,7 @@ You can use the <code>properties</code> property to assign a map of key/value pa
 So far so good. But what happens when it comes to binding many-to-one or one-to-one associations? The answer is pretty simple: it just works [<a href="http://grails.org/doc/latest/guide/6.%20The%20Web%20Layer.html#6.1.6%20Data%20Binding">2</a>]. <code>GrailsDataBinder</code> even supports lazy object instantiation of domain classes. Whenever the other side of the association does not exist, it is created by Grails and populated with the given request parameter values:
 
 {% highlight groovy %} 
-/blog/save?title=Bla&amp;author.name=John%20Doe
+/blog/save?title=Bla&author.name=John%20Doe
  {% endhighlight %}
 
 But what happens when working with unidirectional one-to-many associations?
@@ -67,7 +67,7 @@ private void bindCollectionAssociation(MutablePropertyValues mpvs, PropertyValue
   Collection collection = (Collection) bean.getPropertyValue(pv.getName());
   collection.clear();
   final Class associatedType = getReferencedTypeForCollection(pv.getName(), getTarget());
-  final boolean isArray = v != null &amp;&amp; v.getClass().isArray();
+  final boolean isArray = v != null && v.getClass().isArray();
   final PropertyEditor propertyEditor = findCustomEditor(collection.getClass(), pv.getName());
 
   // ...

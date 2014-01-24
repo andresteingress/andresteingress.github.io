@@ -78,7 +78,7 @@ class Item {
     private CoffeeType coffee_type
     ...
 
-    @Requires({ type != null &amp;amp;&amp;amp; amount > 0 })
+    @Requires({ type != null && amount > 0 })
     def Item(final CoffeeType type, final Integer amount)  { ... }
 
     @Ensures({ old -> old.coffee_type != coffee_type })
@@ -89,7 +89,7 @@ class Item {
 As you can see pre- and postconditions are applied on constructors or methods only. In addition, there is the need to express assertions which must be preserved by all methods and every instance of that class; these assertion types are called <em>class-invariants</em>:
 
 {% highlight groovy %} 
-@Invariant({ coffee_type != null &amp;amp;&amp;amp; amount > 0 })
+@Invariant({ coffee_type != null && amount > 0 })
 class Item { ... }
  {% endhighlight %}
 

@@ -238,7 +238,7 @@ But cropping isn't that beautiful, is it? Let's implement the <tt>onDraw</tt> me
         float dx;
         float dy;
 
-        if (drawableWidth <= viewWidth &amp;&amp; drawableHeight <= viewHeight) {
+        if (drawableWidth <= viewWidth && drawableHeight <= viewHeight) {
             scale = 1.0f;
         } else {
             scale = Math.min((float) viewWidth / (float) drawableWidth,

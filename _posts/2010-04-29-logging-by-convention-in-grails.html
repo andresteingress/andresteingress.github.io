@@ -76,7 +76,7 @@ def addLogMethod(artefactClass, handler) {
 
     def log = LogFactory.getLog(logName)
 
-    artefactClass.metaClass.getLog &amp;lt;&amp;lt; {-&amp;gt; log}
+    artefactClass.metaClass.getLog << {-> log}
 }
 
 // ...
