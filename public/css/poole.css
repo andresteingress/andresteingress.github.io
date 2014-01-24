@@ -145,18 +145,18 @@ abbr[title] {
 }
 
 /* Code */
-code,
-pre {
+.highlight pre code,
+.highlight pre {
   font-family: Menlo, Monaco, "Courier New", monospace;
 }
-code {
+.highlight pre code {
   padding: .25em .5em;
   font-size: 85%;
   color: #bf616a;
   background-color: #f9f9f9;
   border-radius: 3px;
 }
-pre {
+.highlight pre {
   display: block;
   margin-top: 0;
   margin-bottom: 1rem;
@@ -169,7 +169,7 @@ pre {
   word-wrap: break-word;
   background-color: #f9f9f9;
 }
-pre code {
+.highlight pre code {
   padding: 0;
   font-size: 100%;
   color: inherit;
@@ -406,6 +406,6 @@ a.pagination-item:hover {
   overflow: auto; 
 }
 
-code span {
+.highlight pre code span {
   white-space:nowrap;
 }

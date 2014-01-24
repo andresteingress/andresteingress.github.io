@@ -27,6 +27,16 @@
     </div>
 
     <script type="text/javascript">
+      $(document).ready(function() {
+        $('div.highlightjs pre').each(
+          function(i, e) {
+            hljs.highlightBlock(e)
+          }
+        );
+      });
+    </script>
+
+    <script type="text/javascript">
 
       var _gaq = _gaq || [];
       _gaq.push(['_setAccount', 'UA-47447299-1']);
