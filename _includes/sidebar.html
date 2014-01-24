@@ -6,7 +6,10 @@
 <div class="sidebar" id="sidebar">
   <div class="sidebar-item">
     <p>{{ site.description }}</p>
-    <p><a href="https://www.twitter.com/{{ site.twitter }}"><img src="/assets/tw.png" width="20" height="17"/></a></p>
+    <p>
+      <a href="https://www.twitter.com/{{ site.twitter }}"><img style="display: inline;" src="/assets/tw.png" width="20" height="17"/></a>
+      <a href="https://github.com/andresteingress"><img style="display: inline;" src="/assets/gh.png" width="20" height="20"/></a>
+    </p>
   </div>
 
   <nav class="sidebar-nav">
@@ -26,7 +29,6 @@
       {% endif %}
     {% endfor %}
 
-    <a class="sidebar-nav-item" href="{{ site.github.repo }}">GitHub Repo</a>
     <a class="sidebar-nav-item" href="http://www.dtr.fm">DTR.fm</a>
     <span class="sidebar-nav-item">v{{ site.version }}</span>
   </nav>
