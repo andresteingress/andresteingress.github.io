@@ -400,3 +400,12 @@ a.pagination-item:hover {
     border-bottom-right-radius: 4px;
   }
 }
+
+.highlight pre { 
+  white-space: pre; 
+  overflow: auto; 
+}
+
+code span {
+  white-space:nowrap;
+}
