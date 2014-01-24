@@ -22,7 +22,6 @@ Especially for library/framework provides it makes sense to visualize usage of c
 When using JavaDoc, more than one line source code examples are wrapped by a &lt;pre&gt; tags. For example, see the following example from the <tt>java.nio.file.Files#newOutputStream()</tt> method:
 
 {% highlight java %} 
-<pre> 
     Path path = ...
     // truncate and overwrite an existing file, or create the file if
     // it doesn't initially exist
@@ -33,18 +32,17 @@ When using JavaDoc, more than one line source code examples are wrapped by a &lt
     out = Files.newOutputStream(path, CREATE, APPEND);
     // always create new file, failing if it already exists
     out = Files.newOutputStream(path, CREATE_NEW);
-</pre>
  {% endhighlight %}
 
 As code gets changed over time, an interesting question is how to ensure code validity for source code examples embedded in JavaDoc comments. 
 
 That is where Groovy jumps in. Groovy comes with <tt>JavadocAssertionTestBuilder</tt> and <tt>JavadocAssertionTestSuite</tt>. Source code examples within documentation for classes owned by a <tt>JavadocAssertionTestSuite</tt> can be annotated with 
 
-[sourcecode source="html"]
-&lt;pre class=&quot;groovyTestCase&quot;&gt;
+{% highlight html %} 
+<pre class="groovyTestCase">
  // source code example here
-&lt;/pre&gt;
-[/sourcecode]
+</pre>
+{% endhighlight %}
 
 Each section formatted with the CSS class <tt>groovyTestCase</tt> is found by the test suite and executed within runtime-generated test methods.
 
