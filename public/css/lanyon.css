@@ -543,3 +543,7 @@ a.pagination-item:hover {
 .theme-base-0f .related-posts li a:hover {
   color: #8f5536;
 }
+
+#disqus_thread {
+  margin-top: 2rem;
+}
