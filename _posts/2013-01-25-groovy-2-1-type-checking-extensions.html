@@ -1,0 +1,133 @@
+---
+layout: post
+title: 'Groovy 2.1: Type Checking Extensions'
+categories:
+- ast transformations
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _edit_last: '2'
+  _edit_lock: '1359408390'
+  _syntaxhighlighter_encoded: '1'
+  _wp_old_slug: ''
+---
+As of Groovy 2.0, the static type checking and compilation annotations <tt>@CompileStatic</tt> and <tt>@TypeChecked</tt> [<a href="http://groovy.codehaus.org/gapi/groovy/transform/CompileStatic.html">0</a>][<a href="http://groovy.codehaus.org/gapi/groovy/transform/TypeChecked.html">1</a>] can be applied on types and methods.
+
+Type checking helps us identify typing errors, or references to undeclared methods as shown in the following code example:
+{% highlight groovy %} @groovy.transform.TypeChecked
+class Greeter {
+    void greet(String other)  {
+        println "Hello, $oher".toUppercase()
+    }
+} {% endhighlight %}
+With <tt>@TypeChecked</tt> we get the following errors during compile-time:
+{% highlight groovy %} [Static type checking] - The variable [oher] is undeclared.
+ at line: 4, column: 26
+
+[Static type checking] - Cannot find matching method groovy.lang.GString#toUppercase(). Please check if the declared type is right and if the method exists.
+ at line: 4, column: 17 {% endhighlight %}
+If you ever had the case where a typing error caused serious errors on your Grails production system, you will surely value the use of this annotation.
+<h3>Custom Type Checking Extensions</h3>
+Groovy 2.1 takes the conecpt of type checking even further and introduces a way to add custom type checking extensions. Custom type checking extensions are a great way to add compile-time checks that go beyond standard compile validations.
+
+As an example, let's assume we have a type checked <tt>Sql</tt> utility class to access our relational database. The <tt>Sql</tt> class has a method named <tt>eachRow</tt> receiving a SQL query of type String as first argument:
+{% highlight groovy %} sql.eachRow( 'select * from tableName' ) { println "$it.id -- ${it.firstName} --" } {% endhighlight %}
+As you can see in the code above, the SQL query is of type String. Syntactical errors we only occur at runtime.
+
+With a custom type checking extension we can evaluate the specified SQL query at compile-time. The first step is to add a Groovy script to our class-path, let's call it <tt>SqlExtension.groovy</tt>. Groovy 2.1 comes with a custom type checking DSL that can be used within these scripts.
+
+Let's see how a SQL parsing type checking extension could look like:
+{% highlight groovy %} @Grab(group='net.sf.jsqlparser', module='jsqlparser', version='0.8.0') 
+import net.sf.jsqlparser.parser.CCJSqlParserManager
+
+afterMethodCall { mc ->
+  def receiver = mc.receiver
+  if (!isVariableExpression(receiver)) return
+
+  def method = getTargetMethod(mc)
+
+  if (classNodeFor(groovy.sql.Sql) == getType(receiver) && method.name == 'eachRow') {
+    def argList = getArguments(mc)
+    if (argList && isConstantExpression(argList[0])) {
+        def pm = new CCJSqlParserManager();
+        def sqlQuery = argList[0].text
+
+        try {
+            pm.parse(new StringReader(sqlQuery))
+            } catch (e) {
+                addStaticTypeError("SQL query is not valid: " + e, argList[0])   
+            }
+        }
+    }
+} {% endhighlight %}
+And that's it. It has to be noted that the <tt>@Grab</tt> annotation can be used inside type checking extension scripts.  
+
+The example above uses the JSQLParser [<a href="http://jsqlparser.sourceforge.net/">2</a>] library but we could of course use any other third party library.
+
+The <tt>afterMethodCall</tt> is one of the event hooks that can be used in a type checking extension. As can be seen, its only argument is an instance of <tt>MethodCall</tt> which we use to retrieve the target method's name and the methods receiver type. Once we're sure that it's a call to <tt>Sql#eachRow(...)</tt>, we can check the first argument for being a constant expression (ie. a constant <tt>String</tt>). After we retrieved the constant, we can fire up our SQL parser and see if the statement is syntactically correct. Let's add the <tt>SqlExtension.groovy</tt> on a test class:
+{% highlight groovy %} import groovy.sql.Sql
+
+@groovy.transform.TypeChecked(extensions = ['SqlExtension.groovy'])
+class SqlTest {
+
+    def test() {
+    	def db = [url:'jdbc:hsqldb:mem:testDB', user:'sa', password:'', driver:'org.hsqldb.jdbc.JDBCDriver']
+ 	def sql = Sql.newInstance(db.url, db.user, db.password, db.driver)
+
+ 	sql.eachRow('select * frm PROJECT') { row ->
+	    println row
+	}
+    }
+} {% endhighlight %}
+Obviously, the specified SQL argument string is syntactically not correct. Let's see if we get a compile error when compiling this class:
+{% highlight groovy %} org.codehaus.groovy.control.MultipleCompilationErrorsException: startup failed:
+SqlTest.groovy: 10: [Static type checking] - SQL query is not valid: net.sf.jsqlparser.JSQLParserException
+ @ line 10, column 16.
+    		sql.eachRow('select * frm PROJECT') { row ->
+                  ^ {% endhighlight %}
+It worked! We have our first custom type checking extension that checks SQL statements for their syntactical correctness. Cool, isn't it?
+<h3>GTCES</h3>
+<tt>GroovyTypeCheckingExtensionSupport</tt> [3] is the class that handles type extension script and therefore defines all available event hooks. During its initialization phase, GTCES adds a custom script base class to our extension script and adds some default imports:
+{% highlight groovy %} CompilerConfiguration config = new CompilerConfiguration();
+config.setScriptBaseClass("org.codehaus.groovy.transform.stc.GroovyTypeCheckingExtensionSupport.TypeCheckingDSL");
+
+ImportCustomizer ic = new ImportCustomizer();
+ic.addStarImports("org.codehaus.groovy.ast.expr");
+ic.addStaticStars("org.codehaus.groovy.ast.ClassHelper");
+ic.addStaticStars("org.codehaus.groovy.transform.stc.StaticTypeCheckingSupport");
+
+config.addCompilationCustomizers(ic); {% endhighlight %}
+The <tt>METHOD_ALIASES</tt> constant show all event hooks currently available:
+{% highlight groovy %} private final static Map METHOD_ALIASES = Collections.unmodifiableMap(
+            new HashMap() 
+                put("onMethodSelection", "onMethodSelection");
+                put("afterMethodCall", "afterMethodCall");
+                put("beforeMethodCall", "beforeMethodCall");
+                put("unresolvedVariable", "handleUnresolvedVariableExpression");
+                put("unresolvedProperty", "handleUnresolvedProperty");
+                put("unresolvedAttribute", "handleUnresolvedAttribute");
+                put("methodNotFound", "handleMissingMethod");
+                put("afterVisitMethod", "afterVisitMethod");
+                put("beforeVisitMethod", "beforeVisitMethod");
+                put("afterVisitClass", "afterVisitClass");
+                put("beforeVisitClass", "beforeVisitClass");
+                put("incompatibleAssignment", "handleIncompatibleAssignment");
+                put("setup","setup");
+                put("finish", "finish");
+            
+    ); {% endhighlight %}
+If you seek to implement custom type checking extensions, you should have a closer look at <tt>GCTES</tt> as this is starting point for the extension DSL.
+<h3>Conclusion</h3>
+Groovy 2.1 adds custom type checking extensions to its <tt>@TypeChecked</tt> annotation. Type checking extensions can be used for additional type checks that go beyond standard compiler validations and offer a great way to perform domain-specific compile-time checks in DSLs or, more general, Groovy code!
+
+<strong>UPDATE</strong>
+
+Cédric Champeau released the <a href="http://docs.codehaus.org/display/GROOVY/Type+checking+extensions">type checking extensions documentation</a>. If you want to implement a type checking extension, this is the place where to get a deeper insight into that topic.
+
+<br><br><div>[0] <a href="http://groovy.codehaus.org/gapi/groovy/transform/CompileStatic.html">groovy.transform.CompileStatic</a></div>
+<div>[1] <a href="http://groovy.codehaus.org/gapi/groovy/transform/TypeChecked.html">groovy.transform.TypeChecked</a></div>
+<div>[2] <a href="http://jsqlparser.sourceforge.net/">JSQLParser Library @ Sourceforge</a></div>
+[3] org.codehaus.groovy.transform.stc.GroovyTypeCheckingExtensionSupport

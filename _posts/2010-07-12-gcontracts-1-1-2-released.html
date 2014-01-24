@@ -1,0 +1,117 @@
+---
+layout: post
+title: GContracts 1.1.2 Released!
+categories:
+- gcontracts
+- releases
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_post_language: ''
+  _flattr_post_category: ''
+  _flattr_post_hidden: ''
+  _flattr_btn_disabled: ''
+  _syntaxhighlighter_encoded: '1'
+  _edit_lock: '1289936329'
+  _edit_last: '13220543'
+  jabber_published: '1278960657'
+  _wp_old_slug: ''
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1293719777";}";
+---
+I am proud to announce that GContracts 1.1.2 has just been released and is available now in the Central Maven repository [<a href="http://repo1.maven.org/maven2/org/gcontracts/gcontracts/1.1.2/">0</a>] and at Github [<a href="http://github.com/andresteingress/gcontracts/downloads">1</a>].
+
+The release mainly includes internal refactorings, bug fixes and support for Groovy's power assertions [<a href="http://groovy.codehaus.org/gapi/org/codehaus/groovy/transform/powerassert/package-summary.html">2</a>].
+
+<strong>Therefore, 1.1.2 upwards depends on Groovy 1.7.</strong> If there is the demand to maintain a separate Groovy 1.6 branch, I will certainly do that - just let me know.
+
+<h4>Groovy Power Assertions &amp; GContracts</h4>
+
+Before 1.1.2, GContracts custom handling of assertion messages prevented triggering of Groovy's power assertion rewriting transformation. Certain parts of GContracts have been rewritten to support power assertions know. The greatest advantage of power assertions are certainly there expressiveness:
+
+{% highlight groovy %} 
+import org.gcontracts.annotations.*
+
+@Invariant({ speed >= 0 &amp;&amp; speed <= 100 })
+class Rocket  {
+    int speed
+    boolean started
+
+    @Requires({ !started })
+    def start() { started = true }
+
+    @Requires({ started })
+    @Ensures({ old -> (speed - old.speed) > 0 })
+    def accelerate()  { speed += 10 }
+}
+
+class BetterRocket extends Rocket {
+    @Override
+    def accelerate() {
+      speed += 20
+    }
+}
+
+def betterRocket = new BetterRocket()
+betterRocket.accelerate()
+ {% endhighlight %}
+
+Output:
+
+{% highlight groovy %} 
+Assertion failed:
+
+<inherited precondition> Rocket.accelerate()
+
+{ started }
+  |
+  false
+
+	at Rocket.precondition_java_lang_Object_accelerate(ConsoleScript0:11)
+	at BetterRocket.super$2$precondition_java_lang_Object_accelerate(ConsoleScript0)
+ {% endhighlight %}
+
+Let's say we would introduce a bug in <code>BetterRocket</code>'s implementation that will violate the parent's postcondition:
+
+{% highlight groovy %} 
+class BetterRocket extends Rocket {
+    @Override
+    def accelerate() {
+      speed = 20
+    }
+}
+
+def betterRocket = new BetterRocket()
+betterRocket.start()
+betterRocket.accelerate()
+// ...
+betterRocket.accelerate()
+ {% endhighlight %}
+
+Output:
+
+{% highlight groovy %} 
+Assertion failed:
+
+<inherited postcondition> Rocket.accelerate()
+
+{ old -> (speed - old.speed) > 0 }
+          |     | |   |      |
+          20    0 |   20     false
+                  {speed=20}
+
+	at Rocket.postcondition_java_lang_Object_accelerate(ConsoleScript3:12)
+	at BetterRocket.super$2$postcondition_java_lang_Object_accelerate(ConsoleScript3)
+ {% endhighlight %}
+
+The assertion message shows what assertion got violated and has visual pointers to the computed expression values - assertion messages can't be more readable than that.
+
+<h4>Changes</h4>
+
+ISSUE-7: use Groovy power asserts as an alternative to AssertionStatement
+ISSUE-16: old variables gets cleared on inherited postcondition
+
+<br><br><div>[0] <a href="http://repo1.maven.org/maven2/org/gcontracts/gcontracts/1.1.2/">GContracts 1.1.2 in Central Maven Repository</a></div>
+<div>[1] <a href="http://github.com/andresteingress/gcontracts/downloads">GContracts at Github</a></div>
+<div>[2] <a href="http://groovy.codehaus.org/gapi/org/codehaus/groovy/transform/powerassert/package-summary.html">Groovy Power Assertions</a></div>

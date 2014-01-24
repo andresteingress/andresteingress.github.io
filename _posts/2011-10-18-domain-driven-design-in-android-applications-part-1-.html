@@ -1,0 +1,45 @@
+---
+layout: post
+title: Domain-Driven Design in Android Applications (Part 1)
+categories:
+- android
+tags: []
+status: draft
+type: post
+published: false
+meta:
+  _syntaxhighlighter_encoded: '1'
+  _edit_last: '2'
+  _edit_lock: '1318941977'
+---
+Domain-Drive Design (DDD) is a toolbox invented by Eric Evans. It consists of concrete patterns, concepts and methodologies to enhance reusability and the overall quality of software products. Although DDD most of the time is an issue when designing server-side applications, the domain-centric approach can be used in mobile applications too. This article shows various patterns and ways how to inject a domain model into an Android application.
+
+<h3>Getting to know the domain</h3>
+
+One of the most important issues first: just because it is a mobile application, it does not mean that no domain model exists. At least my mental model of DDD existed only for server-side applications for a long time. But applying DDD to mobile applications is completely valid - why shouldn't this toolbox be useful for mobile applications too?
+
+One of the examples in Eric Evans DDD book is a cargo shipping tracking application, keeping track of cargo transports. This article series will show a cargo shipping Android application and its domain model.
+
+<h3>The Domain Model</h3>
+
+As its name implies, the domain directly reflects important entities or objects and their relationships between them. As business processes vary over time and are perceived differently from individual to individual, the domain model is not static model. In effect, during the process of so-called software evolution the domain model changes multiple times, adding entities, removing entities changing relationships are all valid actions as long as not practiced to extensively.
+
+One of the most important entities in our cargo Android application is without a doubt the <i>Cargo</i> entity.  A cargo is defined as transport for goods or products, generally for commercial gain. Abstract speaking, a cargo is itself a concrete object, transporting specific things, with an origin and destination. Our Android application potentially has to track a large number of cargos, whereas each cargo object needs to be identified by a unique property. In our case this property is the <i>tracking number</i> - a globally unique identifier that identifies each and very single cargo object in our domain.
+
+{% highlight java %} 
+
+public class Cargo {
+
+    private Location origin;
+    private Location destination;
+
+    private TransportGoodDescription description;
+
+    public Cargo(Location origin, Location destination, TransportGoodDescription good)  {
+        this.origin = origin;
+        this.destination = destination;
+        this.description = good;
+    }
+}
+
+ {% endhighlight %} 

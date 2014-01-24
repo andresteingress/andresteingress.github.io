@@ -1,0 +1,334 @@
+---
+layout: post
+title: Domain Patterns in Enterprise Projects
+categories:
+- basic
+- grails
+- patterns
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1293719895";}";
+  _edit_last: '2'
+  _edit_lock: '1295331655'
+  _syntaxhighlighter_encoded: '1'
+  _flattr_btn_disabled: ''
+  _flattr_post_hidden: '0'
+  _flattr_post_category: text
+  _flattr_post_language: en_GB
+---
+If I had to separate projects I've been in, i would difference between data manipulation and enterprise projects.
+
+Data manipulation projects mainly consist of a set of forms needed to alter data which is stored in some persistent store (most of the time a relational database). In these projects, there is not much domain logic to be found. There might be some validation logic, some jobs running in the background, but that's mainly it with domain logic.
+
+Enterprise projects are all about domain logic and integration of external systems. Most of the time a project starts with implementing all the views and domain classes which are considered to be simple, that is, not much domain knowledge has to be available in order to implement those views. But as time goes by, domain logic creeps in and classes which seemed pretty small and granular for data manipulation style grow to be oversized monsters.
+
+<img src="http://andresteingress.files.wordpress.com/2010/05/data-manipulation-and-domain-logic.png" alt="" title="Data Manipulation and Domain Logic" width="397" height="314" class="aligncenter size-full wp-image-479">
+
+Web frameworks like Grails make it easy to implement data manipulation style applications: if project members have a clear picture how to model the domain classes, they write the domain classes and all the view and controller stuff comes automatically with it.
+
+If your project is moving towards being an enterprise project, there are some patterns that helped in my projects to deal with additional domain logic and complexity i want to share with this article.
+
+<h4>The Birth of Objects</h4>
+
+The birth of an object is a special event: it is the time the object's data starts to exist in memory. In order to create an object, one of the object's constructors is used. A constructor is a special creation procedure which encapsulates object initialization and which ensures that at the end of the constructor call an object is in a state that satisfies the class invariant.
+
+Okay, that is rather academic you might think, which is true for classes which resemble active records [<a href="http://martinfowler.com/eaaCatalog/activeRecord.html">0</a>] - but not for real domain classes found in larger projects. If you are writing an enterprise project with Grails, you have to know that Grails per se is not ment to be used in projects like that, but rather in data manipulation projects.
+
+Let's assume one of our domain classes is a <tt>Customer</tt> domain class. If we create a <tt>Customer</tt> class with
+
+<tt>grails create-domain  org.ast.domain.entity.Customer</tt>
+
+we'll get a class that looks like
+
+{% highlight groovy %} 
+class Customer {
+
+
+
+	static constraints = {
+
+	}
+}
+ {% endhighlight %}
+
+At this point we could add all the properties that resemble a customer and we could think we're done. But what would happen?
+
+We would build nothing more than a class that resembles the active record pattern - at runtime instances of that class mainly are treated like database records and all the domain logic will be put in Grails service classes. But service classes are not ment to be the place are central business logic happens, because we would distribute business logic over multiple service classes, where as each service holds several procedures that modify our active records - such a design screams for better  object-orientation design enforcing information hiding, inheritance, dynamic binding and polymorphism.
+
+Let us come back to our <tt>Customer</tt> domain class and add some properties to it:
+
+{% highlight groovy %} 
+class Customer {
+
+	String name
+	Status status
+	Account account
+
+	static constraints = {
+		name(blank: false)
+		status(nullable: false)
+		account(nullable: false)
+	}
+}
+ {% endhighlight %}
+
+Clients of that class could now create customer objects in arbitrary ways:
+
+{% highlight groovy %} 
+def c = new Customer()
+def c = new Customer(name: 'Max')
+def c = new Customer(status: null)
+def c = new Customer(status: Status.NEW, account: null)
+// ...
+
+ {% endhighlight %}
+
+If we are serious about object-orientation and the role of creation procedures, we should not support creating objects in ways that generate objects which are in an invalid state after object creation, e.g. creating a customer without a <tt>state</tt>. In order to support a more object-oriented design we could modify the <tt>Customer</tt> class like this:
+
+{% highlight groovy %} 
+@Invariant({ name?.size() > 0 &amp;&amp; status &amp;&amp; account })
+class Customer {
+
+	String name
+	Status status
+	Account account
+
+	def Customer(String name, Account account)  {
+		this.name = name
+		this.status = Status.NEW
+		this.account = account
+	}
+
+	void setName(final String other) { name = other }
+	void setStatus(final Status other)  { status = other }
+	void setAccount(final Account other) { account = other }
+
+
+	// Grails Specific
+	private def Customer() {}
+
+	static constraints = {
+		name(blank: false)
+		status(nullable: false)
+		account(nullable: false)
+	}
+}
+ {% endhighlight %}
+
+First of all, we've redeclared setter methods to be only visible in package scope. This comes in handy if you modularize your domain logic in separate packages and want e.g. services to change the state of customer objects.
+
+In addition, a custom constructor was added which is a way to create a <tt>Customer</tt> object being in a valid state after the constructor call. As it turns out, more complex classes would be candidates for factory methods [<a href="http://en.wikipedia.org/wiki/Factory_method_pattern">1</a>]
+
+{% highlight groovy %} 
+@Invariant({ name?.size() > 0 &amp;&amp; status &amp;&amp; account })
+class Customer {
+
+	// ...
+
+	def static Customer create(final String name, final Account account)  {
+		return new Customer(name, account)
+	}
+
+	// ...
+}
+ {% endhighlight %}
+
+or the Builder pattern [<a href="http://en.wikipedia.org/wiki/Builder_pattern">2</a>].
+
+Well-defined creation procedures/constructors/factory methods/etc. are great, because there is a predefined way on how to create a fully initialized, valid object. If we should write an integration test for the <tt>Customer</tt> class and wanted some customer test instances, we would need to know what it takes to create a "valid" customer object - it might be simple in this case, but with more complex classes programmers could simply give up to write test-cases based on the simple fact that it is not obvious to them who to create instances of some type.
+
+<h4>Domain Logic comes in...</h4>
+
+In the previous section, the <tt>Customer</tt> class has been modified to be created with a custom constructor. Let as assume that the following business requirement comes in:
+
+<blockquote>After 30 days, if the customer is in state REGISTERED, the application needs to send an e-mail to the customer, telling that the test-period ends in 5 days.</blockquote>
+
+Is is pretty obvious that we need to have a job that checks for customer accounts existing >= 30 days. In addition, the application needs to have a way to integrate with an external SMTP server, which is a rather technological issue we don't care about now (although I did in the last blog post [<a href="http://andresteingress.wordpress.com/2010/05/11/integration-and-grails/">3</a>]). What's interesting in this place is where to put the additional domain logic.
+
+A first naive approach would be to create a service class <tt>CustomerService</tt> which implements the business requirement:
+
+{% highlight groovy %} 
+class CustomerService {
+
+	static transactional = true
+
+	def void sentTestPeriodEndsMail(final Customer customer)  {
+
+		if (customer.state != State.REGISTERED) return
+		if (!(customer.created + 30 >= new Date()))  return
+
+		customer.state = State.REGISTERED_WARNED
+		customer.save()
+
+		sendMailMessage(customer)
+	}
+
+	// ...
+}
+ {% endhighlight %}
+
+The code above exactly implements the business requirement, which is a good thing. But what if more domain logic creeps in? Let's say there is a more privileged type of users, <tt>FriendOfMineCustomer</tt> from which instances should never receive those mails. We would have to change our service class method to something like:
+
+{% highlight groovy %} 
+class CustomerService {
+
+	static transactional = true
+
+	def void sentTestPeriodEndsMail(final Customer customer)  {
+
+		if (customer instanceof FriendOfMineCustomer) return // <-- more domain logic comes in...
+		if (customer.state != State.REGISTERED) return
+		if (!(customer.created + 30 >= new Date()))  return
+
+		customer.state = State.REGISTERED_WARNED
+		customer.save()
+
+		sendMailMessage(customer)
+	}
+
+	// ...
+}
+ {% endhighlight %}
+
+Now we start to feel that this is obviously not a good design. Just assume we need to check if a customer object is a candidate for receiving reminder messages in another service - we would need to duplicate the code above and put in that place. What is the reason that we slipped into this design? The reason was that we treated customers as active records and created a service procedure that implemented the business requirement in first place with pure procedural design.
+
+A better approach would be to put the additional domain logic in the <tt>Customer</tt> class itself:
+
+{% highlight groovy %} 
+@Invariant({ name?.size() > 0 &amp;&amp; status &amp;&amp; account })
+class Customer {
+
+	def boolean isTestPeriodEmailCandidate()  {
+		return state == State.REGISTERED &amp;&amp; created + 30 >= new Date()
+	}
+
+	// ...
+}
+ {% endhighlight %}
+
+than we could simply modify <tt>FriendOfMineCustomer</tt> to:
+
+{% highlight groovy %} 
+class FriendOfMinCustomer extends Customer {
+
+	def boolean isTestPeriodEmailCandidate()  {
+		return false
+	}
+
+	// ...
+}
+ {% endhighlight %}
+
+and the <tt>CustomerService</tt> class would simply be the integrational glue between the core domain class and the messaging component:
+
+{% highlight groovy %} 
+class CustomerService {
+
+	static transactional = true
+
+	def void sentTestPeriodEndsMail(final Customer customer)  {
+
+		if (!customer.isTestPeriodEmailCandidate()) return
+
+		customer.state = State.REGISTERED_WARNED
+		customer.save()
+
+		sendMailMessage(customer)
+	}
+
+	// ...
+}
+ {% endhighlight %}
+
+As you can see, code for the service class does not feel that complicated anymore. Changing the customer's state should be externalized to another domain class like <tt>CustomerWorkflow</tt>:
+
+{% highlight groovy %} 
+class CustomerWorkflow {
+
+	State state
+	Customer customer
+
+	// ...
+}
+ {% endhighlight %}
+
+This would simplify the service class' method code to:
+
+{% highlight groovy %} 
+class CustomerService {
+
+	static transactional = true
+
+	def void sentTestPeriodEndsMail(final Customer customer)  {
+
+		if (!customer.isTestPeriodEmailCandidate()) return
+
+		customer.workflow.mailMessageSent()
+
+		sendMailMessage(customer)
+	}
+
+	// ...
+}
+ {% endhighlight %}
+
+Keep in mind that there is no single best way on how to treat domain logic in enterprise applications, but one should at least know some basic patterns found in [4] or [5].
+
+<h4>Entities vs. Value Objects</h4>
+
+Another thing which is important for larger Grails projects is to recognize the difference between <i>entities</i> and simple <i>value objects</i>.
+
+In Grails, each generated domain class is an entity - it can be uniquely identified. On the other side, value objects do not have an identity, are immutable and interchangeable. Value object classes could be enumerations, but also separate GORM domain classes. GORM supports embedding domain classes within other domain classes. The decision whether a certain class is a value object class or entity class can change from domain to domain. It could be that an address is a value object, but put in another context an address is an entity.
+
+Defining value objects with domain classes is usually done with the static <tt>embedded</tt> property:
+
+{% highlight groovy %} 
+class Customer {
+
+	// ...
+	Address homeAddress
+
+	static embedded = ['homeAddress']
+}
+
+class Address  {
+
+	String street
+	// ...
+}
+ {% endhighlight %}
+
+Embedding classes has the advantage that developers don't have to care about cascading CRUD operations, since data is directly embedded in the parent table at the database level. Therefore, value object classes simplify domain class relationships.
+
+<h4>The Role of Repositories</h4>
+
+A repository is responsible for loading persistent objects from arbitrary data stores. In Grails, this functionality is mostly encapsulated with GORM generated methods, available as static methods in each domain class:
+
+{% highlight groovy %} 
+def customers = Customer.findAllByState(State.NEW, [max: 10])
+// ...
+ {% endhighlight %}
+
+To be honest, outsourcing data accessing logic in a separate repository class does not seem to be reasonable with GORM. At least one use case would justify separate repository classes: complex data graph deletion.
+
+If the domain model has complex relationships the best strategy is to define <i>Aggregate</i> objects. An aggregate object is the root object of a graph of associated objects. Clients of that class access objects in the aggregates graph only through accessor methods in the aggregate object. It is not possible to modify objects in the data graph directly without using aggregate methods.
+
+<img src="http://andresteingress.files.wordpress.com/2010/05/an-aggregate.png" alt="" title="An Aggregate" width="415" height="171" class="aligncenter size-full wp-image-496">
+
+This pattern simplifies relationships within the domain model and therefore reduces complexity to handle the object graphs and relationships between them. Overall, modification/deletion operations are hidden and encapsulated by the root entity of the aggregate.
+
+<h4>Conclusion</h4>
+
+This article does not claim to offer a complete overview of best practices in Grails enterprise projects, but reflects best-practices that i have found useful in projects i participated in.
+
+I would be happy to discuss other views or other patterns in the comments section of this article.
+
+<br><br><div>[0] <a href="http://martinfowler.com/eaaCatalog/activeRecord.html">Active Record Pattern - http://martinfowler.com/eaaCatalog/activeRecord.html</a></div>
+<div>[1] <a href="http://en.wikipedia.org/wiki/Factory_method_pattern">Factory Method Pattern - http://en.wikipedia.org/wiki/Factory_method_pattern</a></div>
+<div>[2] <a href="http://en.wikipedia.org/wiki/Builder_pattern">Builder Pattern - http://en.wikipedia.org/wiki/Builder_pattern</a></div>
+<div>[3] <a href="http://andresteingress.wordpress.com/2010/05/11/integration-and-grails/">Integration and Grails - http://andresteingress.wordpress.com/2010/05/11/integration-and-grails/</a></div>
+<div>[4] <a href="http://www.amazon.com/Domain-Driven-Design-Tackling-Complexity-Software/dp/0321125215/ref=sr_1_1?ie=UTF8&amp;s=books&amp;qid=1273950192&amp;sr=8-1">Domain Driven Design - Eric Evans</a></div>
+<div>[5] <a href="http://www.amazon.com/Patterns-Enterprise-Application-Architecture-Martin/dp/0321127420/ref=sr_1_1?ie=UTF8&amp;s=books&amp;qid=1273950218&amp;sr=1-1">Patterns of Enterprise Application Architecture - Martin Fowler</a></div>

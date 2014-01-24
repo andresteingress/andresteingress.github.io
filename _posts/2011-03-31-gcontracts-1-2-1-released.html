@@ -1,0 +1,42 @@
+---
+layout: post
+title: GContracts 1.2.1 Released!
+categories:
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_post_language: en_GB
+  _flattr_post_category: text
+  _flattr_post_hidden: '0'
+  _flattr_btn_disabled: ''
+  _edit_last: '2'
+  _edit_lock: '1307954660'
+  _wp_old_slug: ''
+---
+I am proud to announce that GContracts 1.2.1 has just been released and is available in the Central Maven repository [<a href="http://repo1.maven.org/maven2/org/gcontracts/gcontracts-core/1.2.1/">0</a>] and at Github [<a href="https://github.com/andresteingress/gcontracts/downloads">1</a>].
+
+This release includes bug fixes and enhancements.
+
+<h3>@Contracted gets Optional</h3>
+
+The most popular ticket has been [<a href="http://gcontracts.lighthouseapp.com/projects/71511/tickets/8">08</a>]. GContracts 1.2.0 introduced the <tt>@Contracted</tt> annotation which was mandatory on every annotated class or interface. This turned out to be too restrictive and confusing, ticket #8 resolved that issue: <code>@Contracted</code> is now optional and will otherwise be injected automatically. 
+
+<h3>@Target and @Retention Injection on @AnnotationContract</h3>
+
+All <code>@AnnotationContract</code> annotations are injected with appropriate <code>@Target</code> and <code>@Retention</code> annotations if not specified. 
+
+<h3>Release Notes</h3>
+
+[<a href="http://gcontracts.lighthouseapp.com/projects/71511/tickets/13">13</a>] Automtically infer @Retention and @Target into Annotation Contracts
+[<a href="http://gcontracts.lighthouseapp.com/projects/71511/tickets/7">07</a>] Documentation on Annotation Contracts
+[<a href="http://gcontracts.lighthouseapp.com/projects/71511/tickets/12">12</a>] Optimize CandidateChecks and exclude java.lang and groovy.lang
+[<a href="http://gcontracts.lighthouseapp.com/projects/71511/tickets/8">08</a>] find better way instead of @Contracted
+[<a href="http://gcontracts.lighthouseapp.com/projects/71511/tickets/2">02</a>] update github wiki with new 1.2 features
+
+<br><br><div>[0] <a href="http://repo1.maven.org/maven2/org/gcontracts/gcontracts-core/1.2.1/">GContracts 1.2.1 @ Central Maven Repository</a></div>
+<div>[1] <a href="https://github.com/andresteingress/gcontracts/downloads">Github Download Page</a></div>
+
+

@@ -1,0 +1,387 @@
+---
+layout: post
+title: Fighting Orientation Changes in Android
+categories:
+- android
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_btn_disabled: ''
+  _flattr_post_hidden: '0'
+  _flattr_post_category: text
+  _flattr_post_language: en_GB
+  _wp_old_slug: ''
+  _syntaxhighlighter_encoded: '1'
+  _edit_last: '2'
+  _edit_lock: '1317132693'
+---
+One of the problems beginners often struggle with in Android is <i>orientation changes</i>. The problem with an orientation change is that it per se destroys the currently running activity, creates a new instance and starts that instance with the original <tt>Intent</tt> again.
+
+This behavior can be pretty disturbing in applications with multiple background threads/asynchronous tasks. This article shows how to handle background threads when the current activity instance is destroyed and created back and forth.
+
+<h3>Orientation Change Behavior</h3>
+
+For the matter of purpose let us assume we have an Activity that shows a large Image using an <tt>ImageView</tt> loaded from a web server. As the image is very large we decided to show a progress dialog during loading the image.
+
+{% highlight java %} 
+
+public class RemoteImageViewActivity extends Activity {
+
+  private ImageView imageView;
+  private ProgressDialog dialog;
+
+  private class DownloadImageTask extends AsyncTask<URL, Integer, Bitmap> {
+     protected Bitmap doInBackground(URL... urls) {
+         return Downloader.downloadFile(urls[0]); // or for testing purpose just Thread.sleep(30000);
+     }
+
+     protected void onPostExecute(Bitmap bitmap) {
+         imageView.setImageBitmap(bitmap);
+         dialog.dismiss();
+     }
+ }
+
+    @Override public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.main);
+
+        imageView = (ImageView) findViewById(R.id.imageView);
+        dialog = ProgressDialog.show(this, "", "Loading. Please wait...", true);
+
+        try {
+            new DownloadImageTask().execute(new URL("http://blog.andresteingress.com/"));
+
+        } catch (MalformedURLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+}
+
+ {% endhighlight %}
+
+The example above shows a straight-forward implementation I've already seen in a handful of Android applications (mine included ;)).
+
+Now let us see what happens when an orientation change happens during the image is downloaded. As can be seen from the stack trace below, when orientation is changed, our code somehow leaks an activity instance
+
+{% highlight java %} 
+ERROR/WindowManager(1336): Activity com.example.RemoteImageViewActivity has leaked window com.android.internal.policy.impl.PhoneWindow$DecorView@4051c210 that was originally added here
+        android.view.WindowLeaked: Activity com.example.RemoteImageViewActivity has leaked window com.android.internal.policy.impl.PhoneWindow$DecorView@4051c210 that was originally added here
+        at android.view.ViewRoot.<init>(ViewRoot.java:258)
+        at android.view.WindowManagerImpl.addView(WindowManagerImpl.java:148)
+        at android.view.WindowManagerImpl.addView(WindowManagerImpl.java:91)
+        at android.view.Window$LocalWindowManager.addView(Window.java:424)
+        at android.app.Dialog.show(Dialog.java:241)
+        at android.app.ProgressDialog.show(ProgressDialog.java:107)
+        at android.app.ProgressDialog.show(ProgressDialog.java:90)
+        at com.example.RemoteImageViewActivity.onCreate(RemoteImageViewActivity.java:44)
+        at android.app.Instrumentation.callActivityOnCreate(Instrumentation.java:1047)
+        at android.app.ActivityThread.performLaunchActivity(ActivityThread.java:1611)
+        at android.app.ActivityThread.handleLaunchActivity(ActivityThread.java:1663)
+        at android.app.ActivityThread.access$1500(ActivityThread.java:117)
+        at android.app.ActivityThread$H.handleMessage(ActivityThread.java:931)
+        at android.os.Handler.dispatchMessage(Handler.java:99)
+        at android.os.Looper.loop(Looper.java:130)
+        at android.app.ActivityThread.main(ActivityThread.java:3683)
+ {% endhighlight %}
+
+and after a while when the dialog needs to be dismissed another exception happens
+
+{% highlight java %} 
+
+ERROR/AndroidRuntime(1336): FATAL EXCEPTION: main
+        java.lang.IllegalArgumentException: View not attached to window manager
+        at android.view.WindowManagerImpl.findViewLocked(WindowManagerImpl.java:355)
+        at android.view.WindowManagerImpl.removeView(WindowManagerImpl.java:200)
+        at android.view.Window$LocalWindowManager.removeView(Window.java:432)
+        at android.app.Dialog.dismissDialog(Dialog.java:278)
+        at android.app.Dialog.access$000(Dialog.java:71)
+        at android.app.Dialog$1.run(Dialog.java:111)
+        at android.app.Dialog.dismiss(Dialog.java:268)
+
+ {% endhighlight %}
+
+The behavior seems odd at first glance, but when digging into the Android documentation, one finds the reason: per default Android recreates the currently running activity whenever the orientation is changed. That explains why <tt>onPostExecute</tt> can't access the current application window and throws an exception (the first exception with the leaking activity instance is explained in a minute).
+
+<h3>Handling Orientation changes</h3>
+
+There are several ways how to handle an orientation change without leaking windows or accessing "dead" views. In our example above, one way would be to leave the dialog management over to the current <tt>Activity</tt>. This is done by overriding <tt>onCreateDialog</tt> and using its companion methods <tt>showDialog</tt> and <tt>dismissDialog</tt>.
+
+{% highlight java %} 
+public class RemoteImageViewActivity extends Activity
+{
+
+    protected static final int PROGRESS_BAR_DIALOG = 1;
+    
+    private ImageView imageView;
+    
+    private class DownloadImageTask extends AsyncTask<URL, Integer, Bitmap> {
+        protected Bitmap doInBackground(URL... urls) {
+
+            try {
+                Thread.sleep(30000);
+
+                return Bitmap.createBitmap(200, 200, Bitmap.Config.ARGB_8888);
+
+            } catch (InterruptedException e) {
+                return null;
+            }
+        }
+
+        protected void onPostExecute(Bitmap bitmap) {
+            imageView.setImageBitmap(bitmap);
+            
+            dismissDialog(PROGRESS_BAR_DIALOG);
+        }
+    }
+
+    @Override public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.main);
+
+        imageView = (ImageView) findViewById(R.id.imageView);
+        
+        showDialog(PROGRESS_BAR_DIALOG);
+        
+        try {
+            new DownloadImageTask().execute(new URL("http://blog.andresteingress.com/"));
+
+        } catch (MalformedURLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override protected Dialog onCreateDialog(int id) {
+        switch (id)  {
+            case PROGRESS_BAR_DIALOG:
+                return new ProgressDialog.Builder(this).setTitle("").setMessage("Loading. Please wait...").setCancelable(false).create();  
+        }
+        
+        return null;
+    }
+}
+ {% endhighlight %}
+
+Overriding the <tt>onCreateDialog</tt> has the advantage that the <tt>Activity</tt> base class handles persisting the dialogs state and recreating the dialog on orientation changes.
+
+The problem with the example above is that changing the orientation twice or more times, leads again to the view leaking exception from above as the <tt>onCreate</tt> method of the activity is called whenever the orientation is changed.
+
+{% highlight java %} 
+ERROR/WindowManager(1336): Activity com.example.RemoteImageViewActivity has leaked window com.android.internal.policy.impl.PhoneWindow$DecorView@4051c210 that was originally added here
+        android.view.WindowLeaked: Activity com.example.RemoteImageViewActivity has leaked window com.android.internal.policy.impl.PhoneWindow$DecorView@4051c210 that was originally added here
+        at android.view.ViewRoot.<init>(ViewRoot.java:258)
+        at android.view.WindowManagerImpl.addView(WindowManagerImpl.java:148)
+        at android.view.WindowManagerImpl.addView(WindowManagerImpl.java:91)
+        at android.view.Window$LocalWindowManager.addView(Window.java:424)
+        at android.app.Dialog.show(Dialog.java:241)
+        at android.app.ProgressDialog.show(ProgressDialog.java:107)
+        at android.app.ProgressDialog.show(ProgressDialog.java:90)
+        at com.example.RemoteImageViewActivity.onCreate(RemoteImageViewActivity.java:44)
+        at android.app.Instrumentation.callActivityOnCreate(Instrumentation.java:1047)
+        at android.app.ActivityThread.performLaunchActivity(ActivityThread.java:1611)
+        at android.app.ActivityThread.handleLaunchActivity(ActivityThread.java:1663)
+        at android.app.ActivityThread.access$1500(ActivityThread.java:117)
+        at android.app.ActivityThread$H.handleMessage(ActivityThread.java:931)
+        at android.os.Handler.dispatchMessage(Handler.java:99)
+        at android.os.Looper.loop(Looper.java:130)
+        at android.app.ActivityThread.main(ActivityThread.java:3683)
+ {% endhighlight %}
+
+This behavior is caused by <tt>DownloadImageTask</tt> being an inner class. After the orientation change, the asynchronous task refers to the old activity instance and, even worse, it additionally has a reference to the imageView to set the downloaded image accordingly.
+
+But how could we solve that binding to the outer activity instance in our <tt>DownloadImageTask</tt> task class?
+
+<h3>Using a static Handler/Activity Combo</h3>
+
+In order to handle the problem with references to the old activity inside inner class object instances, we could use static variables in combination with Android's <tt>Handler</tt> class. 
+
+{% highlight java %} 
+public class RemoteImageViewActivity extends Activity
+{
+    private static RemoteImageViewActivity ACTIVITY = null;
+
+    private static final int SHOW_PROGRESS_BAR_DIALOG = 1;
+    private static final int HIDE_PROGRESS_BAR_DIALOG = 2;
+    private static final int SHOW_IMAGE = 3;
+
+    private Handler handler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            if (ACTIVITY == null) return;
+
+            switch (msg.what)  {
+                case SHOW_PROGRESS_BAR_DIALOG:
+                     ACTIVITY.showDialog(PROGRESS_BAR_DIALOG);
+                    break;
+
+                case HIDE_PROGRESS_BAR_DIALOG:
+                    ACTIVITY.dismissDialog(PROGRESS_BAR_DIALOG);
+                    break;
+
+                case SHOW_IMAGE:
+                    ImageView imageView = (ImageView) ACTIVITY.findViewById(R.id.imageView);
+                    imageView.setImageBitmap((Bitmap) msg.obj);
+
+            }
+        }
+    };
+
+    protected static final int PROGRESS_BAR_DIALOG = 1;
+
+    private static class DownloadImageTask extends AsyncTask<URL, Integer, Bitmap> {
+
+        private Handler handler;
+
+        public DownloadImageTask(Handler handler)  {
+            this.handler = handler;
+        }
+
+        protected Bitmap doInBackground(URL... urls) {
+
+            try {
+                Thread.sleep(30000);
+
+                return Bitmap.createBitmap(200, 200, Bitmap.Config.ARGB_8888);
+
+            } catch (InterruptedException e) {
+                return null;
+            }
+        }
+
+        protected void onPostExecute(Bitmap bitmap) {
+            handler.sendEmptyMessage(HIDE_PROGRESS_BAR_DIALOG);
+            handler.sendMessage(Message.obtain(handler, SHOW_IMAGE, bitmap));
+        }
+    }
+
+    @Override public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.main);
+
+        handler.sendEmptyMessage(SHOW_PROGRESS_BAR_DIALOG);
+
+        try {
+            new DownloadImageTask(handler).execute(new URL("http://blog.andresteingress.com/"));
+
+        } catch (MalformedURLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+
+        ACTIVITY = this;
+    }
+
+    @Override
+    protected void onStop() {
+        ACTIVITY = null;
+
+        super.onStop();
+    }
+
+    @Override
+    protected Dialog onCreateDialog(int id) {
+        switch (id)  {
+            case PROGRESS_BAR_DIALOG:
+                return new ProgressDialog.Builder(this).setTitle("").setMessage("Loading. Please wait...").setCancelable(false).create();
+        }
+
+        return null;
+    }
+}
+ {% endhighlight %}
+
+The code above always keeps a reference to the current <tt>Activity</tt> in a static class variable. The asynchronous task implementation now keeps a reference to the <tt>Handler</tt> instance, avoiding to refer to the old <tt>Activity</tt> instance. With this little trick we can now safely switch orientations while the background task is running.
+
+But wait, didn't we see that <tt>onCreate</tt> is called multiple times during orientation changes? That means, whenever the orientation is changed we create a new instance of <tt>DownloadImageTask</tt> and start the task again!
+
+<h3>Overriding <tt>android:configChanges</tt></h3>
+
+One way to solve the problem is to introduce another static variable indicating whether the download is currently running in the background or not. But there is another way: we can provide the <tt>android:configChanges="orientation"</tt> XML attribute in our <tt>AndroidManifest.xml</tt>.
+
+The <tt>configChanges</tt> attribute is documented [<a href="http://developer.android.com/guide/topics/manifest/activity-element.html#config">0</a>] as
+
+<blockquote>Lists configuration changes that the activity will handle itself. When a configuration change occurs at runtime, the activity is shut down and restarted by default, but declaring a configuration with this attribute will prevent the activity from being restarted. Instead, the activity remains running and its onConfigurationChanged() method is called.</blockquote>
+
+where as <tt>orientation</tt> is used to react on orientation changes.
+
+Let's add <tt>android:configChanges="orientation"</tt> to our activity XML declaration and modify the code to
+
+{% highlight java %} 
+public class RemoteImageViewActivity extends Activity
+{
+
+    protected static final int PROGRESS_BAR_DIALOG = 1;
+
+    private ImageView imageView;
+
+    private class DownloadImageTask extends AsyncTask<URL, Integer, Bitmap> {
+        protected Bitmap doInBackground(URL... urls) {
+
+            try {
+                Thread.sleep(30000);
+
+                return Bitmap.createBitmap(200, 200, Bitmap.Config.ARGB_8888);
+
+            } catch (InterruptedException e) {
+                return null;
+            }
+        }
+
+        protected void onPostExecute(Bitmap bitmap) {
+            imageView.setImageBitmap(bitmap);
+
+            dismissDialog(PROGRESS_BAR_DIALOG);
+        }
+    }
+
+    @Override public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.main);
+
+        imageView = (ImageView) findViewById(R.id.imageView);
+
+        showDialog(PROGRESS_BAR_DIALOG);
+
+        try {
+            new DownloadImageTask().execute(new URL("http://blog.andresteingress.com/"));
+
+        } catch (MalformedURLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    protected Dialog onCreateDialog(int id) {
+        switch (id)  {
+            case PROGRESS_BAR_DIALOG:
+                return new ProgressDialog.Builder(this).setTitle("").setMessage("Loading. Please wait...").setCancelable(false).create();
+        }
+
+        return null;
+    }
+
+    @Override
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+
+        // some work that needs to be done on orientation change
+    }
+}
+ {% endhighlight %}
+
+By overriding the <tt>onConfigurationChanged</tt> method we have avoided activity recreation, which - in our case - does not seem to be necessary. As you can see in the code above, with this approach we do avoid the use of static class variables and the <tt>Handler</tt> object instance.
+
+<h3>Conclusion</h3>
+
+There are various ways to handle orientation changes and activity recreations in Android. If you have any other tips or preferred ways to do so, you are free to mention them in this article's comments section.
+
+<br><br><div>[0] <a href="http://developer.android.com/guide/topics/manifest/activity-element.html#config">android:configChanges Documentation - http://developer.android.com/guide/topics/manifest/activity-element.html#config</a></div>
+
+<a class="FlattrButton" style="display:none;" rev="flattr;button:compact;" href="http://blog.andresteingress.com/2011/09/27/fighting-orientation-changes-in-android/"></a>
+<noscript><a href="http://flattr.com/thing/404165/Fighting-Orientation-Changes-in-Android" target="_blank">
+<img src="http://api.flattr.com/button/flattr-badge-large.png" alt="Flattr this" title="Flattr this" border="0" /></a></noscript>

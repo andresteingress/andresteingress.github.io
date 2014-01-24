@@ -1,0 +1,40 @@
+---
+layout: post
+title: Thoughts on Contracts Part I
+categories:
+- basic
+- gcontracts
+- Intro
+tags: []
+status: draft
+type: post
+published: false
+meta:
+  _flattr_post_language: ''
+  _flattr_post_category: ''
+  _flattr_post_hidden: ''
+  _flattr_btn_disabled: ''
+  _edit_last: '13220543'
+  _edit_lock: '1279777156'
+---
+Recently I've been asked quite a few times about why and how GContracts [<a href="http://github.com/andresteingress/gcontracts">0</a>] should be used in practice, in real-world projects, and what the benefit of using it would be. In general, in most of the talks I've actually sensed enthusiasm for using DbC but most programmers also seeemd quite reserved when it was about actually getting their hands on it.
+
+I thought a lot about how GContracts can be utilized to enforce software quality and raise stability of software components. In this article series I want to share my thoughts with you - feel free to give feedback in the comments section(s).
+
+<h4>How it started or Getting Used to Internal Resistence</h4>
+
+The first time I've read about Design by Contract(tm) was during my study of Software Engineering. Although I did not participate in "real" software development projects at that time (that is PHP projects) I instantly realized that the concept of embedding specifications into source code was ground-breaking. Unfortunately, as I started to work mainly on JEE projects, I realized that in practice, most programmers did not even had a clue about these concepts. Even worse, once I've told them the basic concepts, no one seemd to think of what would be possible to do with it, but most of them were looking for arguments against using it. Maybe this is a very European/Austrian way of confronting yourself with new things - questioning why not to use it in first place, instead of giving new things a try. None the less, what makes people actually use inventions than?
+
+From my point of view, it are the following three points that make programmers use new technology or not:
+
+<ul><lI>need</li><li>understanding</li><li>simplicity</li></ul>
+
+Let's take <strong>unit testing</strong> for example. Only a few years ago, we've learned about desktop/paper tests, functional tests, but no one imagined that a simple test-framework (like JUnit) - as a result of new project methodologies -  would fundamentally change the way we develop software components.
+
+Lately, I've independently been in a large JEE project where programmers constantly refused to write unit tests or follow a test-first approach. I really tried to convince them with well-known arguments, but what really turned the stone was to write unit-tests for the most important components, install a continuous build management system and just start working with a testing framework. As soon as the first unit tests failed, due to the continuous build management system, the first programmers got convinced that testing could be really valuable, especially when it gets to refactoring production software. Based on that experience, I realized that simply waiting for new technologies to adopt is not enough - one really has to invest a lot of energy to help people bridge the gap between internal resistence and enthusiasm.
+
+Back to GContracts. As it has been the case with unit testing in one of my projects, it's the same with using GContracts in other projects. As long as you simply tell people to use it, they won't be using it.
+
+The next articles in this series will hopefully answers some of the raised questions - based on real world examples from some of my current projects.
+
+<br><br><div>[0] <a href="http://github.com/andresteingress/gcontracts">GContracts - Contract-Oriented Programming for Groovy</a></div>

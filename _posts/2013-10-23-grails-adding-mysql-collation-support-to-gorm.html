@@ -1,0 +1,313 @@
+---
+layout: post
+title: Grails - Adding MySQL Collation Support to GORM
+categories:
+- grails
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _edit_last: '2'
+  _edit_lock: '1382541785'
+  _syntaxhighlighter_encoded: '1'
+  _wp_old_slug: ''
+---
+Lately I've been working on the client-side developing a mult-international Grails application. As this application is being used from several different parts of the world, an important requirement has been to support MySQL's collations for the most important SQL queries.
+
+<h3>MySQL Collation Support</h3>
+
+In MySQL there is a distinction between the character set and its collations. According to the documentation,
+
+<blockquote>a character set is a set of symbols and encodings. A collation is a set of rules for comparing characters in a character set</blockquote>
+
+Therefore collations can be used to implement language specific sorting, which has been exactly the requirement in my case. The MySQL documentation gives good examples for the impacts of different collations [<a href="http://dev.mysql.com/doc/refman/5.0/en/charset-collation-effect.html">0</a>]. 
+
+For example, the following data set
+
+{% highlight groovy %} 
+Muffler
+Müller
+MX Systems
+MySQL
+ {% endhighlight %}
+
+and query
+
+[sourcecode language="sql"]
+SELECT name FROM &lt;data_set&gt; ORDER BY name COLLATE &lt;collation_name&gt;;
+[/sourcecode]
+
+gives the following results for the german1 and german2 collations for the latin1 character set:
+
+{% highlight groovy %} 
+latin1_german1_ci: Muffler, Müller, MX Systems, MySQL (German DIN-1 Rule, ü sorts with u)
+latin1_german2_ci: Müller, Muffler, MX Systems, MySQL (German DIN-2 Rule, ü sorts with ue)
+ {% endhighlight %}
+
+Collations are not only useful for German, but also East-European languages where sorting rules are sometimes totally different than those found in germanic languages.
+
+<h3>Collation Support for GORM</h3>
+
+Before adding collation support to HQL we have to be aware of a huge drawback: collations are a MySQL specific feature. By introducing HQL support for collations, we introduce a large binding to MySQL, including collation-aware integration tests. AFAIK there is no built-in query-based support for collations in H2, so we have to stick to MySQL-backed integration tests.
+
+Let's start our journey to adding collations to HQL. The first step is to find the right place to add this kind of functionality. My first thought, (I'll spoilt it, not proven to be a good one) was to  implement a custom <tt>org.hibernate.Interceptor</tt> that modifies the SQL query right before its execution in the <tt>onPrepareStatement</tt> method. I very quickly reached the point where I was missing too much meta-data about the SQL query that needed collation support. In a nutshell, it turned out to be too complicated to add automatic collation support in a custom Hibernate interceptor, so I decided to find a way to somehow introduce a "collation function" to HQL.
+
+Whenever adding custom functions to HQL the <tt>org.hibernate.dialect.Dialect</tt> class comes to rescue. There are various dialect implementations <tt>MySQL5InnoDBDialect</tt>, <tt>H2Dialect</tt>, <tt>DB2Dialect</tt> are only some among them. When having a look at the <tt>MySQLDialect</tt> implementation we can see the <tt>Dialect</tt> class is being used for registering MySQL specific built-in database functions and types. In addition, language specific features such as paging support, registering var char types for various lengths etc. are made by the dialect implementation.
+
+In order to support the manual specification of a collation in HQL I added a custom <tt>MySQL5InnoDBDialect</tt> descendant class: <tt>CollationAwareMySQL5InnoDBDialect</tt>. The collation aware dialect does only a handful of things, but the most important one is: it registers a <tt>collate</tt> function object of type <tt>org.hibernate.dialect.function.SQLFunction</tt>:
+
+{% highlight groovy %} 
+interface CollationAwareDialect {
+
+    static final String KEYWORD_COLLATE = 'collate'
+
+    static class CollationSQLFunction implements SQLFunction {
+
+        Dialect dialect
+        String collation
+        CollationMappingConfiguration collationMappingConfiguration
+
+        @Override boolean hasArguments() { true }
+        @Override boolean hasParenthesesIfNoArguments() { false }
+        @Override Type getReturnType(Type firstArgumentType, Mapping mapping) throws QueryException { firstArgumentType }
+
+        @Override
+        String render(Type firstArgumentType, List arguments, SessionFactoryImplementor factory) throws QueryException {
+            if (arguments.size() != 1)
+                throw new QueryException("'collate' has to be called with a single argument, that is the column collate should refer to")
+
+            if (supportsCollation())
+                return "${arguments[0]} $KEYWORD_COLLATE ${collation}"
+            else
+                return arguments[0]
+        }
+
+        boolean supportsCollation() {
+            return dialect instanceof CollationAwareMySQL5InnoDBDialect
+        }
+    }
+}
+ {% endhighlight %} 
+
+The most important method is the <tt>render</tt> method. It is called whenever the function is being detected and a MySQL raw SQL query replacement String is needed. As you can see above, the <tt>collate</tt> function needs to be called with a single argument: the column/property that needs the <tt>COLLATE</tt> statement in the resulting SQL query. 
+
+Extending the dialect with a custom function turned out to be very flexible. It not only supports a manual way to specify when and where to use a collation (it can even be used in every place where collate is valid in terms of the MySQL query syntax; SELECT, ORDER BY WHERE) buts fits naturally into the HQL syntax and supports several "enscapsulated" function calls:
+
+[sourcecode language="sql"]
+from Person where collate(lower(name)) like :name
+[/sourcecode] 
+
+There is still a missing piece: how to register the mapping between a language and the chosen collation via the Grails configuration? 
+
+The place to go seemed to be the <tt>GrailsAnnotationConfiguration</tt>. This is the code where setting up the Hibernate session factory (with annotation support, hence the name) happens on startup. A <tt>GrailsAnnotatioNConfiguration</tt> descendant class can be configured via the data-source configuration:
+
+{% highlight groovy %} 
+dataSource {
+    // ...
+
+    // custom Hibernate configuration (enables collation support)
+    configClass = 'org.ast.hibernate.collation.CustomConfiguration'
+
+    // Language.id to MySQL collation mapping
+    languageIdCollationMapping = [
+            cs: 'utf8_czech_ci',
+            de: 'utf8_general_ci',
+            es: 'utf8_spanish_ci',
+            fr: 'utf8_german1_ci',
+            hr: 'utf8_croatian_ci',
+            hu: 'utf8_hungarian_ci',
+            pl: 'utf8_polish_ci',
+            ro: 'utf8_romanian_ci',
+            sk: 'utf8_slovak_ci',
+            sl: 'utf8_slovenian_ci'
+    ]
+}
+ {% endhighlight %} 
+
+In the custom configuration class the <tt>collate</tt> function is registered:
+
+{% highlight groovy %} 
+@Log4j
+class CustomConfiguration extends GrailsAnnotationConfiguration {
+
+    GrailsApplication grailsApplication
+
+    /**
+     * If the current dialect is collation-aware, inject the collation mapping
+     * configuration and register the collation HQL functions.
+     *
+     * @return the newly created session factory
+     *
+     * @throws HibernateException
+     */
+    @Override
+    SessionFactory buildSessionFactory() throws HibernateException {
+        SessionFactory sessionFactory = super.buildSessionFactory()
+        if (sessionFactory instanceof SessionFactoryImpl)  {
+            SessionFactoryImpl sessionFactoryImpl = sessionFactory as SessionFactoryImpl
+            if (isCollationAwareDialectEnabled(sessionFactoryImpl.settings))  {
+                def collationMappingConfiguration = grailsApplication.mainContext.getBean('collationMappingConfiguration')
+
+                def dialect = sessionFactoryImpl.settings.dialect
+                dialect.collationMappingConfiguration = collationMappingConfiguration
+                dialect.registerCollationFunctions()
+
+                log.info 'Collation support enabled, injected collation mapping configuration into Dialect.'
+            }
+        }
+
+        return sessionFactory
+    }
+
+    /**
+     * @return do we have a collation-aware dialect in the given <tt>settings</tt>?
+     */
+    boolean isCollationAwareDialectEnabled(Settings settings) {
+        isCollationAwareDialectName(settings.dialect.class.name)
+    }
+
+    /**
+     * @return is the dialect class name in the list of collection-aware dialect class names?
+     */
+    boolean isCollationAwareDialectName(String dialectName) {
+        dialectName in [
+                CollationAwareH2Dialect.class.name,
+                CollationAwareHSQLDialect.class.name,
+                CollationAwareMySQL5InnoDBDialect.class.name
+        ]
+    }
+
+    @Override
+    void setGrailsApplication(GrailsApplication application) {
+        super.setGrailsApplication(application)
+        grailsApplication = application
+    }
+}
+ {% endhighlight %}
+
+The most important part in the code above is the <tt>buildSessionFactory</tt> method. After Grails has configured the Hibernate session factory, the <tt>registerCollationFunctions</tt> method from the custom <tt>Dialect</tt> is called. 
+
+There is a little detail that wasn't talked about explicitly until now. How can the mapping from the configuration between a language and it's collation be specified for a particular HQL at runtime? In fact the point is how to tell the <tt>SQLFunction</tt> the collation string that should be used for a specific query?
+
+This is where the <tt>registerCollationFunctions</tt> comes into play. As its name implies, it register more than one <tt>collate</tt> function. In fact, it register a collation function for every collation that has been specified in the <tt>languageIdCollationMapping</tt>. The trick is, to provide the most important finder methods via a custom meta-class enhancer, the <tt>CollationSupportEnhancer</tt>. This class adds various dynamic methods to our domain classes, all with a language id parameter used to determine the collation to be used. Another little trick is applied in the <tt>prepareQuery</tt> method. For the given language id, the dynamic method gets the collation to be used and replaces the <tt>collate</tt> HQL function call with a function name for the specific collation:
+
+{% highlight groovy %} 
+class CollationSupportEnhancer implements InitializingBean {
+
+    GrailsApplication grailsApplication
+    CollationMappingConfiguration collationMappingConfiguration
+
+    /**
+     * Enhances the given <tt>grailsDomainClass</tt> with collation queries.
+     *
+     * @param grailsDomainClass the domain class to enhance with
+     */
+    void enhance(GrailsDomainClass grailsDomainClass)  {
+        def metaClass = GrailsMetaClassUtils.getExpandoMetaClass(grailsDomainClass.clazz)
+
+        metaClass.static.executeQueryWithCollate = { String languageId, String query ->
+            delegate.executeQuery(prepareQuery(query, languageId))
+        }
+
+        metaClass.static.executeQueryWithCollate = { String languageId, String query, List params ->
+            delegate.executeQuery(prepareQuery(query, languageId), params)
+        }
+
+        metaClass.static.executeQueryWithCollate = { String languageId, String query, List params, Map args ->
+            delegate.executeQuery(prepareQuery(query, languageId), params, args)
+        }
+
+        metaClass.static.findWithCollate = { String languageId, String query ->
+            delegate.find(prepareQuery(query, languageId))
+        }
+
+        metaClass.static.findWithCollate = { String languageId, String query, List params ->
+            delegate.find(prepareQuery(query, languageId), params)
+        }
+
+        metaClass.static.findWithCollate = { String languageId, String query, List params, Map args ->
+            delegate.find(prepareQuery(query, languageId), params, args)
+        }
+
+        metaClass.static.findAllWithCollate = { String languageId, String query ->
+            delegate.findAll(prepareQuery(query, languageId))
+        }
+
+        metaClass.static.findAllWithCollate = { String languageId, String query, List params ->
+            delegate.findAll(prepareQuery(query, languageId), params)
+        }
+
+        metaClass.static.findAllWithCollate = { String languageId, String query, List params, Map args ->
+            delegate.findAll(prepareQuery(query, languageId), params, args)
+        }
+    }
+
+    /**
+     * Prepares the HQL query before it is delegated to the Hibernate query resolution chain. Replaces
+     * all generic "collate" function calls with concrete "collate" function calls. This is necessary
+     * to have separate HQL query plans for the same query with different collations.
+     *
+     * @param hqlQuery the HQL query holding "collate" function calls
+     * @param languageId the current language id
+     *
+     * @return the modified HQL query, ready to be used by Hibernate
+     */
+    String prepareQuery(String hqlQuery, String languageId)  {
+        def collationQuery = new HQLQuery(hqlQuery)
+        def collation = collationMappingConfiguration.collationForLanguageId(languageId)
+
+        if (collation)  {
+            collationQuery.replaceFunctionCall(CollationAwareDialect.FUNCTION_COLLATE, collation).hqlQuery
+        } else {
+            collationQuery.hqlQuery
+        }
+    }
+
+    @Override
+    void afterPropertiesSet() throws Exception {
+        grailsApplication.domainClasses.each { GrailsDomainClass grailsDomainClass ->
+            enhance(grailsDomainClass)
+        }
+    }
+}
+ {% endhighlight %}
+
+The dynamic methods added by this class are the ones that can effectively use the <tt>collate</tt> function in the given HQL queries by specifying the language id besides the HQL query and parameters:
+
+{% highlight groovy %} 
+Person.findAllWithCollate('en', 'from Person p order by collate(p.name) asc')
+ {% endhighlight %}
+
+As can be seen in the <tt>CollationSupportEnhancer</tt> code above, the enhancer modifies the HQL query a bit: it replaces the <tt>collate</tt> function name with the collation name. The <tt>collate</tt> function replacement does also solve a not directly visible issue: Hibernate's SQL caching with the HQL query plan. 
+
+The query plan acts as internal cache for HQL queries. If we would have built the solution on using the <tt>collate</tt> function and selecting the right collation string in the <tt>SQLFunction</tt> we would have been running into troubles with the query plan as the same HQL statement results in potentially different SQL statements. As a matter of fact, this would be leading to having the first SQL query that was generated from our HQL query to be "bound" to that specific HQL query, which isn't what we want, as there could be multiple SQL statements which are bound to our HQL query.
+
+Now it might be clear why the dialect method has been called <tt> registerCollationFunctions</tt>. It registers a function for every collation that is configured in the data-source configuration:
+
+{% highlight groovy %} 
+class CollationAwareMySQL5InnoDBDialect extends MySQL5InnoDBDialect implements CollationAwareDialect {
+
+    CollationMappingConfiguration collationMappingConfiguration
+
+    void registerCollationFunctions() {
+        registerFunction(FUNCTION_COLLATE, new CollationAwareDialect.CollationSQLFunction(dialect: dialect, collation: '', collationMappingConfiguration: collationMappingConfiguration))
+        collationMappingConfiguration.languageIdCollationMapping().each { String language, String collation ->
+            registerFunction(collation, new CollationAwareDialect.CollationSQLFunction(dialect: this, collation: collation, collationMappingConfiguration: collationMappingConfiguration))
+        }
+    }
+}
+ {% endhighlight %}
+
+The code above shows how multiple SQL functions are registered. This way the correct <tt>SQLFunction</tt> object is being used to render the desired collation string.
+
+<h3>Conclusion</h3>
+
+There are still some missing pieces like adding a faked collation support to the H2 dialect, to let collate HQL queries run in H2-based integration tests. But the article should have shown the most important parts for adding collation support to HQL queries.
+
+There are various places in Hibernate and Grails that can be leveraged to add a <tt>collate</tt> HQL function and dynamic GORM finder methods that do support it.  
+
+Adding MySQL collation support to HQL is not a trivial thing and breaks compatibility to other databases. In my case, the project has been committed to MySQL and there are more parts of the application that directly use MySQL-only features, so this wasn't a big deal. 
+
+<br><br><div>[0] <a href="http://dev.mysql.com/doc/refman/5.0/en/charset-collation-effect.html">MySQL Documentation - Examples of the effect of collations</a></div>

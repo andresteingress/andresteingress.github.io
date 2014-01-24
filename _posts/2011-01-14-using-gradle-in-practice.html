@@ -1,0 +1,392 @@
+---
+layout: post
+title: Using Gradle in Practice
+categories:
+- gradle
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_post_language: en_GB
+  _flattr_post_category: text
+  _flattr_post_hidden: '0'
+  _flattr_btn_disabled: ''
+  _edit_last: '2'
+  _edit_lock: '1295211373'
+  _syntaxhighlighter_encoded: '1'
+  _wp_old_slug: ''
+---
+One thing on my to-do list for a long time has been to switch GContracts [<a href="http://github.com/andresteingress/gcontracts">0</a>] from Maven to Gradle. This blog post is about the basic concepts I learned from the migration and how parts of the resulting <code>build.gradle</code> look like.
+
+<h3>The Origin</h3>
+
+GContracts is basically a Java library which provides Groovy AST transformations to annotate Groovy classes with pre-, post-conditions and class-invariants. So far, the build-process has been realized with Maven 2, thus with a <code>pom.xml</code>.
+
+The overall build-process is pretty straight-forward:
+<ul>
+	<li>compile the java classes with a dependency to the current Groovy version</li>
+	<li>compile the groovy classes with the same dependency (all tests are done in Groovy)</li>
+	<li>execute the test-suite</li>
+	<li>generate the javadoc files from the given source code</li>
+	<li>packaging
+<ul>
+	<li>package the compiled class files to a separate Jar file</li>
+	<li>package the source files to a separate Jar file</li>
+	<li>package the javadoc files to a separate Jar file</li>
+</ul>
+</li>
+	<li>sign all Jar files</li>
+	<li>upload all jar files to the OSS Sonatype Nexus staging repository</li>
+</ul>
+
+The <code>pom.xml</code> for GContracts build process <a href="https://github.com/andresteingress/gcontracts/blob/master/pom.xml">can be found at github</a>, but it mainly consists of plugins realizing the use-cases cited above.
+
+<h3>Starting with a simple <code>build.gradle</code></h3>
+
+Gradle's equivalent to Maven's <code>pom.xml</code> is a file called <code>build.gradle</code>. But differently from Maven, it uses its own internal Groovy DSL called the <em>Gradle Build Language</em> [<a href="http://www.gradle.org/0.9.1/docs/dsl/index.html">1</a>].
+
+Before I am going to start with the basic terminology it is important to notice that Gradle itself has been built by applying domain-driven design principles, leading to an important consequence: you'll find class representations of the terminology I use in this blog article in the <em>Gradle API</em>. This is a direct consequence of using a ubiquitous language (a language structured around the domain model and used by all team members to connect all the activities of the team with the software), a main principle of DDD. 
+
+A first-class citizen is the <em>project</em>. Each <code>build.gradle</code> file is directly linked to a project. If GContracts would consist of multiple sub-projects (core-module, spring-module, etc.) each sub-project would be assigned to a separate <code>build.gradle</code> file. For the sake of simplicity, let us ignore multi-project builds for this article (more about it can be found in the Gradle documentation [<a href="http://www.gradle.org/0.9.1/docs/userguide/multi_project_builds.html">2</a>]). As I've said previously, when taking a look at Gradle's API javadoc you'll find the <code>Project</code> class. It is exactly this <code>Project</code> class which will be instantiated by Gradle when starting a build process - after initialization <code>build.gradle</code> is used to configure the <code>Project</code> object instance.
+
+<img src="http://blog.andresteingress.com/wp-content/uploads/2011/01/gradle_project.png" alt="" title="each project relates to a build.gradle" width="382" height="260" class="aligncenter size-full wp-image-1169" />
+
+There are various ways we can alter the <code>Project</code> instance with DSL statements in the <code>build.gradle</code> file. What we need to do first of all is to set some properties (although all of them would be optional and assigned to default values):
+
+{% highlight groovy %} 
+group = "org.gcontracts"
+version = "1.1.3"
+
+description = "GContracts provides closure annotations to support design by contract for Groovy classes."
+
+targetCompatibility = "1.5"
+sourceCompatibility = "1.5"
+ {% endhighlight %}
+
+As you might see in the code snippet above, there is no reference to the actual <code>Project</code> object instance defined, like <code>project.group = ...</code>. Since <code>build.gradle</code> syntax is a Groovy DSL, this can be done by altering the delegate - the object which receives method and property calls. In this case, every property we've specified will be delegated to the actual <code>Project</code> instance (if it is not a build script property/method, but let us ignore those details by now).
+
+Gradle is based on a modularized structure, with each module being a <em>plugin</em>. Out-of-the-box Gradle comes with a bunch of officially supported plugins. In order to compile and package the Java source files we need to add the Gradle Java plugin [<a href="http://www.gradle.org/java_plugin.html">3</a>]. Applying a plugin to a build configuration file is done by calling the <code>Project</code> class' <code>apply</code> method 
+
+{% highlight groovy %} 
+apply plugin: 'java'
+ {% endhighlight %}
+
+which imports all tasks defined by the Java plugin. When calling <code>gradle tasks</code> on the command-line we could see the tasks being imported by the Java plugin. As GContracts internally uses Groovy as the only dependency (the Java code executing the AST transformations needs to know the Groovy abstractions), an external dependency needs to be defined in our <code>build.gradle</code> file to let GContracts compile correctly:
+
+{% highlight groovy %} 
+dependencies {
+    compile group: 'org.codehaus.groovy', name: 'groovy', version: '1.7.6'
+}
+ {% endhighlight %}
+
+This means that during compilation the dependency to Groovy 1.7.6 will automatically be resolved in a transitive way. In order to resolve all libraries we need to specify a Maven repository location to obtain the library files - I chose Maven central.
+
+{% highlight groovy %} 
+repositories {
+    mavenCentral()
+}
+ {% endhighlight %}
+
+So far so good, next step is to setup the test environment.
+
+<h3>Setting Up the Test Environment</h3>
+
+Since GContracts test cases are entirely written in Groovy, we'll also need to apply the Groovy plugin [<a href="http://gradle.org/tutorial_groovy_projects.html">4</a>]. The plugin does not work out-of-the-box, it needs to know the exact Groovy version it should use. This can be done by specifying another dependency:
+
+{% highlight groovy %} 
+dependencies {
+    compile group: 'org.codehaus.groovy', name: 'groovy', version: '1.7.6'
+    groovy group: 'org.codehaus.groovy', name: 'groovy', version: '1.7.6'
+}
+ {% endhighlight %}
+
+There is a little detail which might have caused your attention: the target of the newly introduced dependency is <code>groovy</code>. 
+
+Gradle introduces the concept of <em>configurations</em>. Multiple configurations can be added to the current project, each configuration will contain a certain distinct set of dependencies. When we applied the Groovy plugin, it added a <code>groovy</code> configuration to the current project. The <code>groovy</code> configuration does not default to a certain Groovy version, that is the reason we need to explicitly define one.
+
+The Groovy plugin automatically applies the Java plugin, so we can remove this line. In addition, we can remove the first reference to Groovy for the compile configuration since the <code>groovy</code> configuration extends the <code>compile</code> configuration.
+
+The next step is to add another dependency for executing JUnit test cases:
+
+{% highlight groovy %} 
+dependencies {
+    groovy group: 'org.codehaus.groovy', name: 'groovy', version: '1.7.6'
+    testCompile group: 'junit', name: 'junit', version: '3.8.1'
+}
+ {% endhighlight %}
+
+As I've already brought up, this is all valid Groovy code - we could use custom classes, custom plugins or custom Groovy functionality to adapt the build script for our (or the enterprise) needs. 
+
+This is it. With the following <code>build.gradle</code> we can already compile Java and Groovy source-code, create javadocs, test and package GContracts - only be specifying the plugins, a repository, dependencies and very little meta-data.
+
+{% highlight groovy %} 
+apply plugin: 'groovy'
+
+group = "org.gcontracts"
+version = "1.1.3"
+
+// libs
+junit = "junit:junit:3.8.1"
+
+description = "GContracts provides closure annotations to support design by contract (tm) for Groovy"
+
+targetCompatibility = "1.5"
+sourceCompatibility = "1.5"
+
+// specifies all Maven repositories for resolving external depedencies
+repositories {
+  mavenCentral()
+}
+
+// external dependencies
+dependencies {
+  groovy group: 'org.codehaus.groovy', name: 'groovy', version: '1.7.6'
+  testCompile junit
+}
+ {% endhighlight %}
+
+When running <code>gradle tasks</code> we can have a look at all tasks this build script offers for execution:
+
+[sourcecode]
+gradle tasks
+:tasks
+
+------------------------------------------------------------
+Root Project - GContracts provides closure annotations to support design by contract (tm) for Groovy
+------------------------------------------------------------
+
+Build tasks
+-----------
+assemble - Assembles all Jar, War, Zip, and Tar archives.
+build - Assembles and tests this project.
+buildDependents - Assembles and tests this project and all projects that depend on it.
+buildNeeded - Assembles and tests this project and all projects it depends on.
+classes - Assembles the main classes.
+clean - Deletes the build directory.
+jar - Assembles a jar archive containing the main classes.
+testClasses - Assembles the test classes.
+
+Documentation tasks
+-------------------
+groovydoc - Generates the groovydoc for the main source code.
+javadoc - Generates the javadoc for the main source code.
+
+Help tasks
+----------
+dependencies - Displays the dependencies of root project 'gcontracts'.
+help - Displays a help message
+projects - Displays the sub-projects of root project 'gcontracts'.
+properties - Displays the properties of root project 'gcontracts'.
+tasks - Displays the tasks in root project 'gcontracts'.
+
+Verification tasks
+------------------
+check - Runs all checks.
+test - Runs the unit tests.
+
+Rules
+-----
+Pattern: build&lt;ConfigurationName&gt;: Assembles the artifacts of a configuration.
+Pattern: upload&lt;ConfigurationName&gt;: Assembles and uploads the artifacts belonging to a configuration.
+Pattern: clean&lt;TaskName&gt;: Cleans the output files of a task.
+
+To see all tasks and more detail, run with --all.
+
+BUILD SUCCESSFUL
+
+Total time: 4.212 secs
+[/sourcecode]
+
+Of course there is a way to define custom tasks in Gradle, we will have a look at when we implement uploading to the Maven repository. If you want to know more about it in advance, take a look at [<a href="http://www.gradle.org/0.9.1/docs/userguide/">7</a>].
+
+<h3>It gets trickier</h3>
+
+The next build tasks are to configure signing and uploading the archives to the OSS Sonatype Nexus staging repository. Signing is done via GPG and luckily there is a third party plugin for that use-case: the GPG Gradle plugin [<a href="https://github.com/huxi/huxi-gradle-plugins">5</a>]. 
+
+To use the GPG plugin we need to add a separate build script dependency:
+
+{% highlight groovy %} 
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'de.huxhorn.gradle:de.huxhorn.gradle.pgp-plugin:0.0.3'
+    }
+}
+ {% endhighlight %}
+
+with that dependency we can apply the third party plugin and thus import GPG signing functionality. 
+
+{% highlight groovy %} 
+apply plugin: de.huxhorn.gradle.pgp.PgpPlugin
+ {% endhighlight %}
+
+The <code>PgpPlugin</code> looks for the <code>uploadArchives</code> task (which will be part of the Gradle Maven plugin which is used for uploading the archive) and adds signing of all the affected artifacts before the deployment is executed. In order to let the plugin sign correctly, we need to specify some additional meta-data:
+
+{% highlight groovy %} 
+pgp {
+	secretKeyRingFile = new File("${System.properties['user.home']}/.gnupg/secring.gpg")
+	keyId = '740A1840'
+	password = 'youShouldNotDoThis'
+}
+ {% endhighlight %}
+
+We could specify arbitrary configuration data in the <code>gradle.properties</code> file, located in the <code>.gradle</code> directory - this would be a better place for <code>keyId</code> and <code>password</code>.
+
+The last requirement is uploading the signed artifacts to the OSS Sonatype Nexus staging repository. Therefore, we need to apply the Maven Gradle plugin [<a href="http://gradle.org/0.9-preview-1/docs/userguide/maven_plugin.html">6</a>] and specify additional data which will be part of the generated <code>pom.xml</code>.
+
+{% highlight groovy %} 
+apply plugin: 'maven'
+// ...
+
+uploadArchives {
+  repositories.mavenDeployer {
+    configuration = configurations.archives
+
+    repository(url: "http://oss.sonatype.org/service/local/staging/deploy/maven2/") {
+      authentication(userName: nexusUsername, password: nexusPassword)
+    }
+
+    pom.project {
+      name 'GContracts - Contract-Oriented Programming for Groovy'
+      packaging 'jar'
+      description 'GContracts provides annotations to implement interface contracts aka design by contract in Groovy classes.'
+      url 'http://github.com/andresteingress/gcontracts'
+      inceptionYear '2010'
+
+      scm {
+        url 'scm:git:file:///Users/andre/Development/gcontracts'
+        connection 'scm:git:file:///Users/andre/Development/gcontracts'
+      }
+
+      licenses {
+        license {
+          name 'BSD License'
+          comments """
+                /**
+                Copyright (c) 2010, gcontracts@me.com
+                All rights reserved.
+
+                Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
+                following conditions are met:
+
+                1.) Redistributions of source code must retain the above copyright notice, this list of conditions and the following
+                disclaimer.
+                2.) Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following
+                disclaimer in the documentation and/or other materials provided with the distribution.
+                3.) Neither the name of Andre Steingress nor the names of its contributors may be used to endorse or
+                promote products derived from this software without specific prior written permission.
+
+                THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+                INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+                DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+                SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+                SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+                WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
+                USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+                **/
+          """
+          distribution 'repo'
+        }
+      }
+
+      developers {
+        developer {
+          id 'andre'
+          name 'Andre Steingress'
+          email 'me@andresteingress.com'
+          url 'http://www.andresteingress.com'
+          // see: http://www.mail-archive.com/user@gradle.codehaus.org/msg05368.html
+          // organization 'Andre Steingress'
+          // organizationUrl 'http://www.andresteingress.com'
+          roles{
+            role 'Developer'
+          }
+          timezone '+1'
+        }
+      }
+    }
+  }
+ {% endhighlight %}
+
+Executing <code>gradle uploadArchives</code> now compiles, tests, packages, signs and deploys the GContracts jar to the staging repository.
+
+Our last step is to deploy two more signed Jar files: sources and javadocs. This can be easily done by extending the <code>archives</code> configuration with two custom tasks:
+
+{% highlight groovy %} 
+// custom tasks for creating source/javadoc jars
+task sourcesJar(type: Jar, dependsOn:classes) {
+     classifier = 'sources'
+     from sourceSets.main.allSource
+}
+
+task javadocJar(type: Jar, dependsOn:javadoc) {
+     classifier = 'javadoc'
+     from javadoc.destinationDir
+}
+
+// add javadoc/source jar tasks as artifacts
+artifacts {
+     archives sourcesJar
+     archives javadocJar
+}
+ {% endhighlight %}
+
+As you can see in the code sample, the tasks are both of type <code>Jar</code>. A task type definition specifies custom properties and behavior which can be inherited for custom tasks. Finally, both <code>Task</code> object references are added to the artifacts of the current project.
+
+Executing <code>gradle uploadArchives</code> now leads to the following result:
+
+[sourcecode]
+:compileJava UP-TO-DATE
+:compileGroovy UP-TO-DATE
+:processResources UP-TO-DATE
+:classes UP-TO-DATE
+:jar UP-TO-DATE
+:javadoc
+:javadocJar
+:sourcesJar
+:uploadArchives
+Uploading: org/gcontracts/gcontracts/1.1.3/gcontracts-1.1.3.jar to repository remote at http://oss.sonatype.org/service/local/staging/deploy/maven2/
+Transferring 35K from remote
+Uploaded 35K
+Uploading: org/gcontracts/gcontracts/1.1.3/gcontracts-1.1.3.pom.asc to repository remote at http://oss.sonatype.org/service/local/staging/deploy/maven2/
+Transferring 1K from remote
+Uploaded 1K
+Uploading: org/gcontracts/gcontracts/1.1.3/gcontracts-1.1.3-sources.jar to repository remote at http://oss.sonatype.org/service/local/staging/deploy/maven2/
+Transferring 42K from remote
+Uploaded 42K
+Uploading: org/gcontracts/gcontracts/1.1.3/gcontracts-1.1.3.jar.asc to repository remote at http://oss.sonatype.org/service/local/staging/deploy/maven2/
+Transferring 1K from remote
+Uploaded 1K
+Uploading: org/gcontracts/gcontracts/1.1.3/gcontracts-1.1.3-javadoc.jar to repository remote at http://oss.sonatype.org/service/local/staging/deploy/maven2/
+Transferring 101K from remote
+Uploaded 101K
+Uploading: org/gcontracts/gcontracts/1.1.3/gcontracts-1.1.3-javadoc.jar.asc to repository remote at http://oss.sonatype.org/service/local/staging/deploy/maven2/
+Transferring 1K from remote
+Uploaded 1K
+Uploading: org/gcontracts/gcontracts/1.1.3/gcontracts-1.1.3-sources.jar.asc to repository remote at http://oss.sonatype.org/service/local/staging/deploy/maven2/
+Transferring 1K from remote
+Uploaded 1K
+
+BUILD SUCCESSFUL
+[/sourcecode]
+
+The source files, javadoc and binary are now signed and uploaded to the staging repository. This is exactly what we've been striving for. We're done for now.
+
+<h3>Conclusion and Personal Opinion</h3>
+
+To be fair, GContracts is just a plain Java library packaged as a Jar file. The complexity in the build process comes after the archives have been created. But up to signing and deploying, things were pretty easy and the build script was done in about 15 minutes. Searching for appropriate solutions for signing artifacts have taken some time but the mailinglist came to rescue as a very valuable information resource.
+
+Personally, I really like the DDD approach Gradle has taken. The Gradle API is consistent, meaning it should be easy for beginners to quickly get into the build domain terminology and setup basic build scripts. If complexity raises, it is always possible to add arbitrary complex custom tasks with all the power Groovy provides. Furthermore, since Groovy is used as an internal DSL, you can use object-orientation for better build script code quality (encapsulation, inheritance, modularization, etc.) - time to say goodbye to Maven :-)
+
+<br><br><div>[0] <a href="https://github.com/andresteingress/gcontracts">GContracts @ github.com</a></div>
+<div>[1] <a href="http://www.gradle.org/0.9.1/docs/dsl/index.html">The Gradle Build Language Reference</a></div>
+<div>[2] <a href="http://www.gradle.org/0.9.1/docs/userguide/multi_project_builds.html">Multi-Project Builds - Gradle Reference Documentation</a></div>
+<div>[3] <a href="http://www.gradle.org/java_plugin.html">Java Gradle Plugin</a></div>
+<div>[4] <a href="http://gradle.org/tutorial_groovy_projects.html">Groovy Gradle Plugin</a></div>
+<div>[5] <a href="https://github.com/huxi/huxi-gradle-plugins">GPG Gradle Plugin</a></div>
+<div>[6] <a href="http://gradle.org/0.9-preview-1/docs/userguide/maven_plugin.html">Maven Gradle Plugin</a></div>
+<div>[7] <a href="http://www.gradle.org/0.9.1/docs/userguide/">Gradle User Reference</a></div>

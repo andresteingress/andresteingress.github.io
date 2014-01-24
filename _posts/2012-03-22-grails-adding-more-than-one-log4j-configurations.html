@@ -1,0 +1,88 @@
+---
+layout: post
+title: Grails - Multiple Log4j Configurations
+categories:
+- grails
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _wp_old_slug: ''
+  _syntaxhighlighter_encoded: '1'
+  _edit_lock: '1332405121'
+  _edit_last: '2'
+---
+This is a quick tip that I found very useful and - to my knowledge - is not part of the Grails documentation by now. So let's spread the word :-)
+
+In one of my Grails projects, we use external configuration files to apply customer specific settings. We have a custom <tt>ConfigurationLoader</tt> that is used to locate customer-specific configuration files based on the current environment (VM arguments, *.properties file and such). The configuration loader returns a list of additional configuration files which is handed over to <tt>grails.config.locations</tt> [<a href="http://grails.org/doc/latest/guide/conf.html#configExternalized">0</a>]
+
+{% highlight groovy %} 
+// ConfigurationLoader retrieves customConfigLocations, being an ArrayList<String>
+
+grails.config.locations = customConfigLocations
+ {% endhighlight %}
+
+So far so good. Lately we had the requirement to specify customer-specific Log4J log levels, as various components needed a more fine-grained logging level. In Grails versions prior to Grails 2.0 we could have only satisfied this requirement by completely overriding the <tt>log4j</tt> variable from <tt>Config.groovy</tt> in the custom configuration file.
+
+{% highlight groovy %} 
+
+// log4j configuration
+log4j = {
+    
+    error  'org.codehaus.groovy.grails.web.servlet',  //  controllers
+           'org.codehaus.groovy.grails.web.pages', //  GSP
+           'org.codehaus.groovy.grails.web.sitemesh', //  layouts
+           'org.codehaus.groovy.grails.web.mapping.filter', // URL mapping
+           'org.codehaus.groovy.grails.web.mapping', // URL mapping
+           'org.codehaus.groovy.grails.commons', // core / classloading
+           'org.codehaus.groovy.grails.plugins', // plugins
+           'org.codehaus.groovy.grails.orm.hibernate', // hibernate integration
+           'org.springframework',
+           'org.hibernate',
+           'net.sf.ehcache.hibernate'
+}
+
+ {% endhighlight %}
+
+Luckily, Ian Roberts introduced a far more elegant way to extend the log4j configuration.
+
+<h3>Using a map of closures</h3>
+
+As of Grails 2.0, there is a way to <em>extend</em> the Log4J configuration rather than <em>replacing</em> it. The way to go is to use a <tt>log4j</tt> variable of type <tt>Map&lt;String, Closure&gt;</tt> instead of <tt>Closure</tt>.
+
+{% highlight groovy %} 
+
+// main configuration
+log4j.main = {
+   // ...
+}
+
+// external (customer-specific) configuration
+log4j.external = {
+  // common configuration
+}
+
+environments {
+  development {
+    log4j.env = {
+      // environment-specific config
+    }
+  }
+  production {
+    log4j.env = {
+      // environment-specific config
+    }
+  }
+}
+
+ {% endhighlight %}
+
+As you can see in the code listing above, <tt>log4j</tt> is now treated as map, rather than a single value object. As <tt>groovy.util.ConfigObject</tt> [<a href="http://groovy.codehaus.org/gapi/groovy/util/ConfigObject.html">1</a>] extends <tt>LinkedHashMap</tt>, the log4j entries will be called in the defined order and the resulting configuration entries will be merged. With this patch, we were able to add customer-specific log levels to our external configuration files. 
+
+If you want to have a look at the corresponding patch introducing this feature, check out [<a href="http://jira.grails.org/browse/GRAILS-7314">2</a>].
+
+<br><br><div>[0] <a href="http://grails.org/doc/latest/guide/conf.html#configExternalized">Grails Documentation - Externalized configuration</a></div>
+<div>[1] <a href="http://groovy.codehaus.org/gapi/groovy/util/ConfigObject.html">groovy.util.ConfigObject</a></div>
+<div>[2] <a href="http://jira.grails.org/browse/GRAILS-7314">Jira GRAILS-7314</a> </div>

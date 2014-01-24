@@ -1,0 +1,51 @@
+---
+layout: post
+title: 'Groovy Quickie: Collection#inject([Object,] Closure)'
+categories:
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _edit_last: '2'
+  _edit_lock: '1358872272'
+  _syntaxhighlighter_encoded: '1'
+  _wp_old_slug: ''
+---
+Groovy has a nice Groovy default method called <code>inject</code> [<a href="http://groovy.codehaus.org/groovy-jdk/java/util/Collection.html#inject(groovy.lang.Closure)">0</a>]. Inject can be executed on collection types and is used for algorithms having intermediate results that need to be passed from iteration to iteration.
+
+Documentation excerpt:
+<blockquote>Iterates through the given Collection, passing in the initial value to the 2-arg closure along with the first item. The result is passed back (injected) into the closure along with the second item. The new result is injected back into the closure along with the third item and so on until the entire collection has been used. Also known as foldLeft or reduce in functional parlance.</blockquote>
+
+Let's say we wanted to compute the sum of a list of numbers:
+
+{% highlight groovy %} 
+assert 28 == [1, 2, 3, 4, 5, 6, 7].inject(0, { sum, value -> sum + value })
+ {% endhighlight %}
+
+The code above iterates over all list elements, and passes the current list element as the second actual argument to the given closure. The first argument resembles the intermediary result. 
+
+<strong>1. run</strong>: sum == 0 (initial value), value == 1
+<strong>2. run</strong>: sum == 1, value == 2
+<strong>3. run</strong>: sum == 3, value == 3
+<strong>4. run</strong>: sum == 6, value == 4
+// ...
+
+<tt>inject</tt> does not only work for scalar values, but for arbitrary data types:
+
+{% highlight groovy %} 
+assert [2, 4, 6, 8, 10, 12, 14] == [1, 2, 3, 4, 5, 6, 7].inject([], { list, value -> list << value * 2; list })
+ {% endhighlight %}
+
+In fact, we could even simplify the code above to use the second <tt>inject</tt> without the initial value argument:
+
+{% highlight groovy %} 
+assert 28 == [1, 2, 3, 4, 5, 6, 7].inject { sum, value -> sum + value }
+ {% endhighlight %}
+
+<h3>Conclusion</h3>
+
+The <tt>Collection#inject</tt> default Groovy method (DGM) comes in handy whenever we need to iterate over a collection and pass some intermediary result from iteration to iteration. It can be used either be specifying an initial value and a closure, or with just a single closure as argument.
+
+<br><br><div>[0] <a href="http://groovy.codehaus.org/groovy-jdk/java/util/Collection.html#inject(groovy.lang.Closure)">DGM: Collection#inject</a></div>

@@ -1,0 +1,127 @@
+---
+layout: post
+title: Data Binding and One-To-Many Associations
+categories:
+- grails
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_post_language: en_GB
+  _flattr_post_category: text
+  _flattr_post_hidden: '0'
+  _flattr_btn_disabled: ''
+  _syntaxhighlighter_encoded: '1'
+  _edit_last: '1'
+  _edit_lock: '1295332146'
+  jabber_published: '1278046662'
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1293719984";}";
+  _wp_old_slug: ''
+---
+Data Binding in Grails is referred to as the process of binding incoming request data, typically only available as key/value string pairs, to some domain object.
+
+Let's take a look at the BlogController's save closure out of an example project I've been showing at the last Austrian EJUG meeting [<a href="http://andresteingress.wordpress.com/2010/06/30/ejug-austria-grails-talk/">0</a>]:
+
+{% highlight groovy %} 
+    def save = {
+        def blogInstance = new Blog(params)
+        if (blogInstance.save(flush: true)) {
+            flash.message = "${message(code: 'default.created.message', args: [message(code: 'blog.label', default: 'Blog'), blogInstance.id])}"
+            redirect(action: "show", id: blogInstance.id)
+        }
+        else {
+            render(view: "create", model: [blogInstance: blogInstance])
+        }
+    }
+ {% endhighlight %}
+
+The second line in the <code>save</code> closure creates an instance of the <code>Blog</code> class. As you might already know, creating objects can be done in multiple ways when working with Groovy. In this case, we use Groovy's feature to invoke the "default constructor" and bind the given map containing property values immediately to the fresh instance.
+
+{% highlight groovy %} 
+def blogInstance = new Blog(params)
+ {% endhighlight %}
+
+However, when updating an already persisted <code>blog</code> instance we need to use a mechanism provided by Grails: the <code>properties</code> property.
+
+You can use the <code>properties</code> property to assign a map of key/value pairs to a domain class instance, thus updating the object. By the way: Grails uses Spring's data binding capabilities to perform data binding [<a href="http://static.springsource.org/spring/docs/3.0.x/spring-framework-reference/html/validation.html">1</a>]. This means that you can use all the possibilities provided by Spring, e.g. defining custom <code>PropertyEditor</code> classes.
+
+So far so good. But what happens when it comes to binding many-to-one or one-to-one associations? The answer is pretty simple: it just works [<a href="http://grails.org/doc/latest/guide/6.%20The%20Web%20Layer.html#6.1.6%20Data%20Binding">2</a>]. <code>GrailsDataBinder</code> even supports lazy object instantiation of domain classes. Whenever the other side of the association does not exist, it is created by Grails and populated with the given request parameter values:
+
+{% highlight groovy %} 
+/blog/save?title=Bla&amp;author.name=John%20Doe
+ {% endhighlight %}
+
+But what happens when working with unidirectional one-to-many associations?
+
+<img src="http://andresteingress.files.wordpress.com/2010/07/blog-post-domain-model.png" alt="" title="Blog Domain Model" width="320" height="260" class="aligncenter size-full wp-image-639" />
+
+In my EJUG example we had such a one-to-many association between a <code>Blog</code> and multiple <code>BlogPost</code> instances. The design decision was to keep all domain class relationships as lean as possible, therefore we decided that a relationship between a blog post and its blog is not necessary, as the <code>Blog</code> is a <i>domain aggregate</i> [<a href="http://domaindrivendesign.org/node/88">3</a>].
+
+A bit of digging into Grails' <code>GrailsDataBinder</code> revealed method <code>bindCollectionAssociation</code>:
+
+{% highlight groovy %} 
+private void bindCollectionAssociation(MutablePropertyValues mpvs, PropertyValue pv) {
+  Object v = pv.getValue();
+
+  Collection collection = (Collection) bean.getPropertyValue(pv.getName());
+  collection.clear();
+  final Class associatedType = getReferencedTypeForCollection(pv.getName(), getTarget());
+  final boolean isArray = v != null &amp;&amp; v.getClass().isArray();
+  final PropertyEditor propertyEditor = findCustomEditor(collection.getClass(), pv.getName());
+
+  // ...
+  if(isArray) {
+
+    Object[] identifiers = (Object[])v;
+    for (Object id : identifiers) {
+      if (id != null) {
+        associateObjectForId(pv, id,associatedType);
+      }
+    }
+
+    mpvs.removePropertyValue(pv);
+  }
+// ...
+ {% endhighlight %}
+
+As you can see in the code snippet above, whenever the given property value <code>v</code> is an array, it assumes that it is an array of identifiers. Than it iterates over the identifiers and tries to associate an object for the current identifier with the associated type retrieved via <code>getReferencedTypeForCollection</code>.
+
+In <code>associateObjectForId</code> it uses MOP programming to invoke the associations <code>addTo*</code> method:
+
+{% highlight groovy %} 
+// ...
+MetaClassRegistry reg = GroovySystem.getMetaClassRegistry();
+MetaClass mc = reg.getMetaClass(target.getClass());
+final String addMethodName = "addTo" + GrailsNameUtils.getClassNameRepresentation(name);
+mc.invokeMethod(target, addMethodName,obj);
+// ...
+ {% endhighlight %}
+
+Given a one-to-many association this means that we can simply use Grails default data binding functionality to bind this type of associations. In the view we could use a multi select box to map all selected blog post identifiers to a single request parameter:
+
+{% highlight groovy %} 
+<g:select name="blogPosts" from="${org.ast.domain.BlogPost.list()}" multiple="yes" optionKey="id" size="5" value="${blogInstance?.blogPosts}" />
+ {% endhighlight %}
+
+As a result, the <code>properties</code> property can be used to automatically bind one-to-many associations.
+
+{% highlight groovy %} 
+blog.properties = params
+ {% endhighlight %}
+
+The only requirement is the array type which is important to notice when constructing the identifiers list manually:
+
+{% highlight groovy %} 
+params['blogPosts'] = someList as String[]
+blog.properties = params
+ {% endhighlight %}
+
+<h4>Conclusion</h4>
+
+Data Binding in Grails is based on Spring's validation and data binding mechanisms. When binding unidirectional one-to-many associations the <code>GrailsDataBinder</code> automatically associates objects due to the given identifiers.
+
+<br><br><div>[0] <a href="http://andresteingress.wordpress.com/2010/06/30/ejug-austria-grails-talk/">Grails Talk at the Austrian EJUG meeting in June '10</a></div>
+<div>[1] <a href="http://static.springsource.org/spring/docs/3.0.x/spring-framework-reference/html/validation.html">Spring Data Binding and Validation Documentation</a></div>
+<div>[2] <a href="http://grails.org/doc/latest/guide/6.%20The%20Web%20Layer.html#6.1.6%20Data%20Binding">Data Binding - Grails Documentation</a></div>
+<div>[3] <a href="http://domaindrivendesign.org/node/88">Domain Driven Design Patterns: The Aggregate</a></div>

@@ -1,0 +1,72 @@
+---
+layout: post
+title: gcontracts Status Update
+categories:
+- gcontracts
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _edit_lock: '1271963187'
+  _edit_last: '13220543'
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1293719872";}";
+  _flattr_post_hidden: ''
+  _flattr_btn_disabled: ''
+  _flattr_post_category: ''
+  _flattr_post_language: ''
+---
+I am currently working on the gcontracts 1.0.1 release [<a href="http://github.com/andresteingress/gcontracts/">0</a>]. Apart from bug fixes, that version contains an important feature you might have been tumbled over: class invariant checking on Groovy bean properties.
+
+Groovy beans support a very simple syntax to declare properties [<a href="http://groovy.codehaus.org/Groovy+Beans">1</a>]. E.g. adding a property <code>firstName</code> to your <code>Person</code> class is as simple as typing:
+
+{% highlight groovy %} 
+class Person {
+    String firstName
+    // ...
+}
+ {% endhighlight %}
+
+Compared to its Java equivalent that is as simple as it can get.
+
+{% highlight java %} 
+public class Person {
+    private String firstName;
+
+    public void setFirstName(String anotherFirstName)  {
+        firstName = anotherFirstName;
+    }
+
+    public String getFirstName()  {
+        return firstName;
+    }
+}
+ {% endhighlight %}
+
+Up to now, gcontracts injected class invariants only in explicitly declared setter methods, but users reported the need for class invariant injection on writeable POGO properties.
+
+Today, i am glad to tell you that gcontracts class invariant injection mechanisms now works with POGO properties. Whenever a class declares an invariant, that invariant is injected in every dynamically generated setter method of that class.
+
+E.g. a class invariant like,
+
+{% highlight groovy %} 
+@Invariant({ firstName != null })
+class Person {
+    String firstName
+    // ...
+}
+ {% endhighlight %}
+
+causes a <code>java.lang.AssertionError</code> whenever
+
+{% highlight groovy %} 
+def me = new Person("Andre")
+me.firstName = null
+ {% endhighlight %}
+
+is called.
+
+Support for class invariant injection in POGO properties is currently available in github's Master branch and will be part of gcontracts 1.0.1.
+
+<br><br><div>[0] <a href="http://github.com/andresteingress/gcontracts/">Github - gcontracts</a></div>
+<div>[1] <a href="http://groovy.codehaus.org/Groovy+Beans">Groovy Beans</a></div>

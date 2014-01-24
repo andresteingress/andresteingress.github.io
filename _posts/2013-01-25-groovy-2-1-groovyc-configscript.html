@@ -1,0 +1,123 @@
+---
+layout: post
+title: 'Groovy 2.1: groovyc --configscript'
+categories:
+- ast transformations
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _syntaxhighlighter_encoded: '1'
+  _edit_last: '2'
+  _edit_lock: '1359103314'
+  _wp_old_slug: ''
+---
+One of the new features in Groovy 2.1 [<a href="http://jira.codehaus.org/secure/ReleaseNote.jspa?projectId=10242&amp;version=18598">0</a>] is the <tt>-configscript</tt> Groovy compiler program option.
+
+<h3>Compiler Configuration Script with --configscript</h3>
+
+The <tt>--configscript</tt> option can be used to specify a compiler configuration script. Before 2.1, the <tt>CompilerConfiguration</tt> class could be used to change certain configuration settings:
+
+{% highlight groovy %} 
+def configuration = new CompilerConfiguration()
+// apply some configuration settings ...
+
+def shell = new GroovyShell(configuration)
+ {% endhighlight %}
+
+Although we could set the <tt>CompilerConfiguration</tt> for a given <tt>GroovyShell</tt>, there was no way to do so for the Groovy compiler <tt>groovyc</tt>. As of Groovy 2.1, <tt>--configscript</tt> can be used to point to an external Groovy DSL script that has access to an implicit <tt>configuration</tt> variable of type <tt>CompilerConfiguration</tt>.
+
+In order to specify a Groovy configuration file we need to create a configuration Groovy script, let's call it <tt>config.groovy</tt>:
+
+{% highlight groovy %} 
+import org.codehaus.groovy.control.customizers.ImportCustomizer
+
+def imports = new ImportCustomizer()
+imports.addImports('org.some.*')
+
+configuration.addCompilationCustomizers(imports)
+ {% endhighlight %}
+
+The script above adds package <tt>org.some.*</tt> to the default imports. As you can see, Groovy adds an implicit variable called <tt>configuration</tt>. At runtime, this is the actual compiler configuration our DSL script needs to interact with.
+
+<h3>A New Builder: <tt>CompilerCustomizationBuilder</tt></h3>
+
+Groovy 2.1 comes even with a new DSL for the <tt>--configscript</tt> configuration file. The builder in the background is <tt>CompilerCustomizationBuilder</tt>. For the star import example given above, with the builder the configuration file would look like this:
+
+{% highlight groovy %} 
+import org.codehaus.groovy.control.customizers.ImportCustomizer
+import org.codehaus.groovy.control.customizers.builder.CompilerCustomizationBuilder
+
+CompilerCustomizationBuilder.withConfig(configuration) {
+    new ImportCustomizer().addImports('org.some.*')
+}
+ {% endhighlight %}
+
+or we could - due to the fact that Groovy already adds a star import for <tt>import static CompilerCustomizationBuilder.*</tt> - reduce our code to:
+
+{% highlight groovy %} 
+// implicitly added ...
+// import static org.codehaus.groovy.control.customizers.builder.CompilerCustomizationBuilder.*
+
+import org.codehaus.groovy.control.customizers.ImportCustomizer
+
+withConfig(configuration) {
+    new ImportCustomizer().addImports('org.some.*')
+}
+
+ {% endhighlight %}
+
+The compiler customization is not restricted to adding <tt>CompilerCustomizer</tt> implementations. It can be used to add AST transformations on every artifact that is compiled with the <tt>-configscript</tt> option. Let's say we wanted to apply the newly introduced static compilation feature with <tt>@CompileStatic</tt> to every class in our project. The compiler configuration script can look like this:
+
+{% highlight groovy %} 
+// implicitly added ...
+// import static org.codehaus.groovy.control.customizers.builder.CompilerCustomizationBuilder.*
+
+withConfig(configuration)  {
+    ast(groovy.transform.CompileStatic)
+}
+ {% endhighlight %}
+
+We can even go further. In addition, <tt>CompilerCustomizationBuilder</tt> provides a way to register certain source files with AST transformations.
+
+Let's say we wanted to couple all files with a <tt>*.sgroovy</tt> extension to the <tt>@StaticCompile</tt> annotation. This could be done in the configuration script using a <tt>SourceAwareCustomizerFactory</tt>:
+
+{% highlight groovy %} 
+withConfig(configuration) {
+    source(extension: 'sgroovy') {
+        ast(groovy.transform.CompileStatic)
+    }
+}
+ {% endhighlight %}
+
+When running e.g. <tt>groovyc</tt> with this configuration script and a <tt>*.sgroovy</tt> file we have <tt>@StaticCompile</tt> automatically applied on all newly compiled classes.
+
+There are even more features that can be used with this builder. As a starting point, take a look at the <tt>registerFactories</tt> method in <tt>CompilerCustomizationBuilder</tt>:
+
+{% highlight groovy %} 
+registerFactory("ast", new ASTTransformationCustomizerFactory())
+registerFactory("customizers", new CustomizersFactory())
+registerFactory("imports", new ImportCustomizerFactory())
+registerFactory("inline", new InlinedASTCustomizerFactory())
+registerFactory("secureAst", new SecureASTCustomizerFactory())
+registerFactory("source", new SourceAwareCustomizerFactory())
+ {% endhighlight %}
+
+As you can see, there is even a <tt>ImportCustomizerFactory</tt> predefined. A look at the documentation shows how to use it in the compiler configuration DSL:
+
+{% highlight groovy %} 
+import org.codehaus.groovy.control.customizers.builder.CompilerCustomizationBuilder
+
+def builder = new CompilerCustomizationBuilder()
+builder.imports {
+    star 'org.some'
+}
+ {% endhighlight %}
+
+<h3>Conclusion</h3>
+
+Groovy 2.1 comes with a new Groovy compiler configuration parameter: <tt>-configscript</tt>. In conjunction with the new <tt>CompilerCustomizationBuilder</tt> it can be used to specify a Groovy script holding the compiler configuration DSL code as supported by the builder. This is good news for AST transformation authors as the hook can be used for embedding AST transformations or registering AST transformations on specific source files.
+
+<br><br><div>[0] <a href="http://jira.codehaus.org/secure/ReleaseNote.jspa?projectId=10242&amp;version=18598">Groovy 2.1 Relase Notes</a></div>

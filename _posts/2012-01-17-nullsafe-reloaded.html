@@ -1,0 +1,164 @@
+---
+layout: post
+title: '@NullSafe Reloaded'
+categories:
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _syntaxhighlighter_encoded: '1'
+  _edit_last: '2'
+  _edit_lock: '1326889700'
+---
+In almost all projects of mine I got used to a utility class called <tt>Default</tt>. <tt>Default</tt> would provide static methods, whereas each method comes with a single parameter. The purpose of <tt>Default</tt> was nothing more than to provide default values if the argument is <tt>null</tt> at runtime.
+
+{% highlight java %} 
+
+public class Default {
+
+    // ...    
+    public static Float floatObject(Float n) {
+        return n != null ? n : 0.0f;
+    }
+
+    public static Integer integerObject(Integer i) {
+        return i != null ? i : 0;
+    }
+
+    // ...
+}
+
+ {% endhighlight %}
+
+<h3>Doin it the Groovy way</h3>
+
+With the upcoming popularity of Groovy AST transformations, I thought it would be time to write a small <tt>NullSafeASTTransformation</tt> with the attached <tt>@NullSafe</tt> annotation. 
+
+As Groovy is dynamically typed, <tt>@NullSafe</tt> is restricted to work on statically declared local variables.
+
+{% highlight groovy %} 
+
+@NullSafe String name = data.name
+@NullSafe Integer count = data.count
+@NullSafe BigDecimal amount = data.amount
+
+assert name == ''
+assert count == 0
+assert amount == 0.0
+
+ {% endhighlight %} 
+
+As you can see in the code sample above, <tt>@NullSafe</tt> ensures that the according variable value is at least of the variables type's default value, after the initial expression has been executed at runtime.
+
+In addition, the <tt>NullSafeASTTransformation</tt> checks all variable assignments with a custom class code visitor, to ensure that a variable assignment will result in the default value and not <tt>null</tt>.
+
+{% highlight groovy %} 
+
+def doSomeStuff()  {
+
+    @NullSafe BigDecimal bd = 12.0
+    bd = compute()
+    assert bd == 0.0
+}
+
+def compute() { return null }
+
+ {% endhighlight %}
+
+The <tt>NullSafeASTTransformation</tt> is a local AST transformation [<a href="http://groovy.codehaus.org/Local+AST+Transformations">0</a>], injecting static method calls to a hidden <tt>NullSafeUtil</tt> class:
+
+{% highlight groovy %} 
+
+@GroovyASTTransformation(phase=CompilePhase.SEMANTIC_ANALYSIS)
+class NullSafeASTTransformation implements ASTTransformation {
+
+    SourceUnit sourceUnit
+    ClassNode NULL_SAFE_UTIL_CLASS = ClassHelper.make(NullSafeUtil.class)
+
+    void visit(org.codehaus.groovy.ast.ASTNode[] nodes, org.codehaus.groovy.control.SourceUnit source) {
+        this.sourceUnit = source
+
+        if (sourceUnit.getAST().classes.size() != 1)  {
+            addError('@NullSafe annotation can only be applied on local variables!', nodes[0])
+            return
+        }
+
+        if (nodes.length != 2 || !(nodes[0] instanceof AnnotationNode) || !(nodes[1] instanceof DeclarationExpression)) {
+            addError('@NullSafe annotation can only be applied on local variables!', nodes[0])
+            return
+        }
+
+        DeclarationExpression declarationExpression = nodes[1]
+
+        if (!(declarationExpression.leftExpression instanceof VariableExpression)) {
+            addError('@NullSafe can only be applied on the left side of a variable declaration!', declarationExpression)
+            return
+        }
+
+        injectDeclarationNullSafeCheck(declarationExpression)
+        injectAssignmentNullSafeCheck(declarationExpression)
+    }
+
+    void injectDeclarationNullSafeCheck(DeclarationExpression declarationExpression)  {
+        VariableExpression variableExpression = declarationExpression.leftExpression
+
+        if (variableExpression.dynamicTyped || variableExpression.accessedVariable.type == ClassHelper.DYNAMIC_TYPE)  {
+            addError('@NullSafe is not supported on dynamically typed variables!', variableExpression)
+            return
+        }
+
+        def rightExpression = declarationExpression.getRightExpression()
+        if (rightExpression == null)  {
+            addError("@NullSafeNumber right expression is empty", declarationExpression)
+            return
+        }
+
+        ClassNode variableType = variableExpression.accessedVariable.type
+        declarationExpression.rightExpression = new StaticMethodCallExpression(NULL_SAFE_UTIL_CLASS, "nullSafe", new ArgumentListExpression([new CastExpression(variableType, rightExpression)]))
+    }
+
+    void injectAssignmentNullSafeCheck(DeclarationExpression declarationExpression)  {
+        VariableExpression variableExpression = declarationExpression.leftExpression
+
+        if (variableExpression.dynamicTyped || variableExpression.accessedVariable.type == ClassHelper.DYNAMIC_TYPE)  {
+            addError('@NullSafe is not supported on dynamically typed variables!', variableExpression)
+            return
+        }
+
+        def rightExpression = declarationExpression.getRightExpression()
+        if (rightExpression == null)  {
+            addError("@NullSafeNumber right expression is empty", declarationExpression)
+            return
+        }
+
+        NullSafeClassCodeVisitor visitor = new NullSafeClassCodeVisitor(sourceUnit, variableExpression.accessedVariable)
+        visitor.visitClass(sourceUnit.getAST().classes[0])
+    }
+
+    protected void addError(String msg, ASTNode expr) {
+        int line = expr.getLineNumber();
+        int col = expr.getColumnNumber();
+        sourceUnit.getErrorCollector().addErrorAndContinue(
+                new SyntaxErrorMessage(new SyntaxException(msg + '\n', line, col), sourceUnit)
+        );
+    }
+}
+
+ {% endhighlight %}
+
+The most important points besides checking if the annotation has been applied in a valid context, is the injection of the static method call to <tt>NullSafeUtil.nullSafe</tt>. As Groovy dynamically dispatches static method calls it is ensured that static method selection is based on the variables runtime type.
+
+<h3>Conclusion</h3>
+
+The <tt>@NullSafe</tt> annotation currently works on statically typed local variables. At time of writing, the types cover all <tt>Number</tt> descendants, <tt>String</tt> and <tt>Character</tt>. 
+
+You can have a look at the complete source at Github [<a href="https://github.com/andresteingress/groovy-null-safe-ast/">1</a>], please contribute or leave comments!
+
+<br><br><div>[0] <a href="http://groovy.codehaus.org/Local+AST+Transformations">Groovy Documentation on local AST transformations - http://groovy.codehaus.org/Local+AST+Transformations</a></div>
+<div>[1] <a href="https://github.com/andresteingress/groovy-null-safe-ast/">@NullSafe Github Project - https://github.com/andresteingress/groovy-null-safe-ast/</a></div>
+
+<a class="FlattrButton" style="display:none;" href="http://blog.andresteingress.com/2012/01/17/nullsafe-reloaded/"></a>
+<noscript><a href="http://flattr.com/thing/467220/NullSafe-Reloaded" target="_blank">
+<img src="http://api.flattr.com/button/flattr-badge-large.png" alt="Flattr this" title="Flattr this" border="0" /></a></noscript>

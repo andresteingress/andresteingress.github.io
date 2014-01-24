@@ -1,0 +1,159 @@
+---
+layout: post
+title: Integration and Grails
+categories:
+- grails
+- groovy
+- spring framework
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _syntaxhighlighter_encoded: '1'
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1293719855";}";
+  _edit_last: '2'
+  _edit_lock: '1295331559'
+  _flattr_btn_disabled: ''
+  _flattr_post_hidden: '0'
+  _flattr_post_category: text
+  _flattr_post_language: en_GB
+---
+In most applications, it is a common requirement to implement a mail sending mechanism. Indeed, there is the mail plugin [<a href="http://www.grails.org/Mail+plugin">0</a>] which achieves that use case by injecting a <tt>sendMail</tt> method in Grails artefacts:
+
+{% highlight groovy %} 
+sendMail {
+  to "fred@g2one.com"
+  subject "Hello Fred"
+  body 'How are you?'
+}
+ {% endhighlight %}
+
+But maybe you already had the situation that you felt that this level of integration is not enough - maybe you wanted to use message pooling or you wanted to have multiple task executors processing the message queue from time to time.
+
+Luckily there exists an extension to the Spring Framework which is ment to handle such tasks: Spring Integration [<a href="http://www.springsource.org/spring-integration">1</a>].
+
+<h4>A Small Introduction to Spring Integration</h4>
+
+Spring Integration is all about enabling messaging architectures in Spring-based applications. In this context, messaging does not mean sending e-mails. In a message-oriented middleware (MOM) software components communicate by sending packets of data. Each message has a producer (that part that generated the message) and one or more consumers (doing something with the data provided by the message).
+
+<img src="http://andresteingress.files.wordpress.com/2010/05/messaging-system.png" alt="A Messaging System" title="A Messaging System" width="356" height="232" class="aligncenter size-full wp-image-464" />
+
+Compared to pure method invocations, a messaging communication always implies asynchrony - the producer thread typically does not wait for the consumers to get responses, it <i>sends and forgets</i>. But as the messaging system leverages transaction support, message persistency, pooling of messages, and various other services, using a messaging architecture is especially an option in integration scenarios with external systems (e.g. an SMTP server).
+
+<h4>Adding Spring Integration as Dependency</h4>
+
+A dependency to Spring Integration can simply be specified in the application's <tt>BuildConfig.groovy</tt>:
+
+{% highlight groovy %} 
+dependencies {
+        // specify dependencies here under either 'build', 'compile', 'runtime', 'test' or 'provided' scopes eg.
+        // ...
+   	compile('org.springframework.integration:spring-integration-mail:1.0.4.RELEASE')  {
+          excludes "spring-aop", "spring-beans", "spring-context", "spring-context-support", "spring-core", "spring-tx"
+        }
+    }
+ {% endhighlight %}
+
+Be aware that Grails itself has a dependency on multiple Spring modules, that is the reason why the code sample above explicitly excludes those modules. As you can see, there is a specific Spring Integration module for mail support with artefact-id <tt>spring-integration-mail</tt> which is used in this example. There are various extensions e.g. for RMI, HTTP, JMS etc. integration scenarios.
+
+<h4>A simple configuration</h4>
+
+As mentioned, producers, consumers and messages play a central role in messaging systems. Another important concept is called a <i>channel</i>. A channel is a logical pathway between a sender and its receivers. Spring Integration supports two conceptually different channel types: event-based and polling channels.
+
+Event-based channels are rather easy to understand. Whenever a message is sent on an event-based channel, the subscribers immediately receive that message. On the other side, polling channels poll the channel for new messages and if messages are found, those are handled by the associated consumers.
+
+Let us assume the use case for our application is to send mails in chunks - either the application sends chunks of 50 messages or it waits for a certain timeout to occur.
+
+First step is to create an <tt>integration.xml</tt> and to define a pollable channel in there:
+
+{% highlight xml %} 
+<?xml version="1.0" encoding="UTF-8"?>
+<beans:beans xmlns="http://www.springframework.org/schema/integration"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:beans="http://www.springframework.org/schema/beans"
+	xmlns:mail="http://www.springframework.org/schema/integration/mail"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans ... ">
+
+    <channel id="someMessageChannel"/>
+
+</beans:beans>
+ {% endhighlight %}
+
+The <tt>integration.xml</tt> file can simply be referenced by Grails <tt>resources.xml</tt> or <tt>resources.groovy</tt>.
+
+Per default such a declaration declares a <tt>org.springframework.integration.channel.DirectChannel</tt> bean. A direct channel is a point-to-point channel that supports execution of message operations in a single thread.
+
+As the <tt>someMessageChannel</tt> is a Spring bean it can be injected into Grails service classes:
+
+{% highlight groovy %} 
+class MyService {
+
+  static transactional = true
+
+  MessageChannel someMessageChannel
+
+  def void someOperation()  {
+    // ...
+    someMessageChannel.send(...)
+  }
+}
+
+ {% endhighlight %}
+
+The <tt>MessageChannel</tt> can now be used to send <tt>org.springframework.integration.core.Message</tt> instances:
+
+{% highlight groovy %} 
+  someMessageChannel.send(new GenericMessage<String>("my payload"))
+ {% endhighlight %}
+
+In this case, the message simply has an instance of <tt>java.lang.String</tt> as payload, but the <tt>GenericMessage</tt> actually is generic and supports arbitrary classes. In our use case of sending mails, the application has to construct a more complicated message, including message headers in addition to the message payload:
+
+{% highlight groovy %} 
+    def headers = [:]
+
+    headers.put MailHeaders.FROM, from
+    headers.put MailHeaders.SUBJECT, subject
+    headers.put MailHeaders.TO, receiver
+
+    // create an instance of javax.mail.internet.MimeMessage
+    // ...
+    someMessageChannel.send(new GenericMessage<MimeMailMessage>(new MimeMailMessage(mimeMessage), headers))
+ {% endhighlight %}
+
+This is the time we need to add another component to our configuration file: we need to add an SMTP adapter. An adapter acts as messaging client and invokes functionality of the adapted application or component. The Spring Integration Mail module provides an adapter that delegates to Spring's <tt>JavaMailSender</tt>. Thus in order to add get the mail adapter working, you need a mail sender in the application context:
+
+{% highlight xml %} 
+  <channel id="someMessageChannel"/>
+
+  <!-- mailSender bean needs to be configured somewhere in the application context... -->
+  <mail:outbound-channel-adapter channel="someMessageChannel" mail-sender="mailSender"/>
+</beans:beans>
+ {% endhighlight %}
+
+Last step is to add polling capabilities to our <tt>someMessageChannel</tt> which can be done with some additional XML configuration:
+
+{% highlight xml %} 
+  <channel id="someMessageChannel"/>
+
+  <!-- mailSender bean needs to be configured somewhere in the application context... -->
+  <mail:outbound-channel-adapter channel="someMessageChannel" mail-sender="mailSender">
+    <poller max-messages-per-poll="50">
+      <interval-trigger interval="30" time-unit="SECONDS"/>
+    </poller>
+  </mail:outbound-channel-adapter>
+</beans:beans>
+ {% endhighlight %}
+
+Please notice, in a real world example the application would probably not create a message instance which is tied to a <tt>MimeMessage</tt>. In place of adding the mail related information on message creation, one could use <tt>Transformer</tt> implementations to do that just before the mail adapter receives the message.
+
+<h4>Conclusion</h4>
+
+Spring Integration is a mighty Spring extension - if you are seriously developing Grails applications you should consider taking a look at it. Sending mail is only the peak of the iceberg - if you think especially of enterprise integration scenarios with other applications or external systems using a messaging system (and maybe a JMS messaging server) can enforce performance and reliability of applications.
+
+If you want to delve into the topic of enterprise integration patterns, take a look at [Amazon-Link, <a href="http://www.amazon.de/Enterprise-Integration-Patterns-Designing-Deploying/dp/0321200683/ref=sr_1_1?ie=UTF8&amp;s=books-intl-de&amp;qid=1273614487&amp;sr=8-1">4</a>], btw Spring Integration's design is inspired by the patterns mentioned there.
+
+<br><br><div>[0] <a href="http://www.grails.org/Mail+plugin">Grails Mail Plugin - http://www.grails.org/Mail+plugin</a></div>
+<div>[1] <a href="http://www.springsource.org/spring-integration">Spring Integration Project Homepage</a></div>
+<div>[2] <a href="http://repo1.maven.org/maven2/org/springframework/integration/">Spring Integration in Central Maven Repo</a></div>
+<div>[3] <a href="http://www.amazon.de/Enterprise-Integration-Patterns-Designing-Deploying/dp/0321200683/ref=sr_1_1?ie=UTF8&amp;s=books-intl-de&amp;qid=1273614487&amp;sr=8-1">Enterprise Integration Patterns - Hohpe, Woolfe, et.al.</a></div>

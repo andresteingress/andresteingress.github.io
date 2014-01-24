@@ -1,0 +1,58 @@
+---
+layout: post
+title: GContracts 1.1.0 Released!
+categories:
+- gcontracts
+- releases
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _edit_last: '13220543'
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1293720056";}";
+  _edit_lock: '1294152127'
+  jabber_published: '1276339972'
+  _syntaxhighlighter_encoded: '1'
+  _flattr_post_hidden: ''
+  _flattr_btn_disabled: ''
+  _wp_old_slug: ''
+  _flattr_post_category: ''
+  _flattr_post_language: ''
+---
+After a short break, I am happy to tell you that GContracts 1.1.0 has been released and was pushed to the central Maven repository.
+
+Grab GContracts 1.1.0 by defining a <a href="http://andresteingress.wordpress.com/2010/04/14/gcontracts-available-in-maven-central-repository/">Maven dependency [0]</a> or by direct download from <a href="http://github.com/andresteingress/gcontracts/downloads">github's download section [1]</a>.
+
+This release marks an important milestone since inheritance of class invariants, preconditions and postconditions is supported by now. The basic principles found in Design by Contract(tm) can therefore be fully utilized in Groovy/Grails projects.
+
+GContracts' test suite currently holds more than 100 test cases for regression and feature testing. There <del datetime="2010-06-18T09:14:30+00:00">will be</del> is a separate blog post on how to test and implement Groovy AST transformations, with all my experiences so far with GContracts [<a href="http://andresteingress.wordpress.com/2010/06/18/unit-testing-groovy-ast-transformations/">4</a>].
+
+<h4>Changes</h4>
+
+GContracts 1.1.0 fixes the following issues:
+
+<ul>
+<li><a href="http://github.com/andresteingress/gcontracts/issues/closed#issue/14">ISSUE-14</a>: fix class invariant inheritance with default class invariant - a class with a class invariant in its heir must be equipped with a default class invariant chaining the method call to the super class invariant.
+</li>
+<li><a href="http://github.com/andresteingress/gcontracts/issues/closed#issue/1">ISSUE-1</a>: pre- and postcondition inheritance - class invariants, pre- and postconditions are now inherited. inheritance support does not include pre/postcondition support in interfaces, but there is a separate ISSUE <a href="http://github.com/andresteingress/gcontracts/issues/closed#issue/12">on this topic</a>. More about pre/postcondition inheritance <del datetime="2010-06-15T09:08:26+00:00">will follow</del> in a separate blog post [<a href="http://andresteingress.wordpress.com/2010/06/15/gcontracts-inheritance-of-pre-and-postconditions/">3</a>].
+</li>
+<li><a href="http://github.com/andresteingress/gcontracts/issues/closed#issue/10">ISSUE-10</a>: all uses of <tt>getTypeClass()</tt> were removed with valid alternatives. this was done due to issues with the Groovy Eclipse plugin.
+</li>
+<li><a href="http://github.com/andresteingress/gcontracts/issues/closed#issue/13">ISSUE-13</a>: Cleanup the generated AST: a few optimizations have been made to the AST node generating components.
+</li>
+<li>
+Bug fixes and a lot more bug fixes.
+</li>
+</ul>
+
+Special thanks for your contributions!
+
+<br><br><div>[0] <a href="http://repo1.maven.org/maven2/org/gcontracts/gcontracts/1.1.0/">GContracts - Central Maven Repository</a></div>
+<div>[1] <a href="http://andresteingress.wordpress.com/2010/04/14/GContracts-available-in-maven-central-repository/">GContracts Available in Central Maven Repository</a></div>
+<div>[2] <a href="http://github.com/andresteingress/gcontracts/downloads">GContracts - Github Download Section</a></div>
+<div>[3] <a href="http://andresteingress.wordpress.com/2010/06/15/gcontracts-inheritance-of-pre-and-postconditions/">GContracts: Inheritance of Pre- and Postconditions</a></div>
+<div>[4] <a href="http://andresteingress.wordpress.com/2010/06/18/unit-testing-groovy-ast-transformations/">Grails Inside - Unit Testing Groovy AST Transformations</a></div>
+
+<a href="http://flattr.com/thing/21159/GContracts-1-1-0-Released" target="_blank">
+<img src="http://api.flattr.com/button/button-static-50x60.png" alt="Flattr this" title="Flattr this" border="0" /></a>

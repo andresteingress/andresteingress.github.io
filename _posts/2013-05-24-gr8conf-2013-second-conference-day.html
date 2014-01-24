@@ -1,0 +1,62 @@
+---
+layout: post
+title: Gr8Conf 2013 - Second Conference Day
+categories:
+- gr8conf
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _edit_last: '1'
+  _edit_lock: '1369807858'
+  _wp_old_slug: ''
+---
+<h3>Is Groovy as Fast as Java?</h3>
+<a href="http://blog.andresteingress.com/wp-content/uploads/2013/05/2013-05-24-08.32.21.jpg"><img class="alignleft size-medium wp-image-2604" title="Gr8Conf 2013 - Russel Winder" src="http://blog.andresteingress.com/wp-content/uploads/2013/05/2013-05-24-08.32.21-300x225.jpg" alt="" width="300" height="225" /></a>The day started with a talk by Dr. Russel Winder. We assumed it would consist only of two slides, the first showing the title, the second one showing "No". And indeed, the second slide stated "No", but luckily the presentation didn't end then. It turned out it hasn't been the speakers view, but the view from "the Scala guys". Russel wanted to get a scientific statement with reproducable results given some standard derivation.
+
+The first results were quite as expected. Java 8 and idiomatic Java 8 under the usage of the Streaming API and Lambas outperformed functional Groovy and even statically compiled Groovy. But as it turned out, when applying some tricks to the Groovy code, the statically compiled version was indeed faster then the Java version. As Russel ensured, he couldn't manage to cause a test result with the Groovy version being slowern then Java for that particular case (yay!) :-)
+
+However, the fact that programmers have to apply tricks to get an X times faster version is not a reason to be enthusiastic about. Although it was agreed upon that performance alone wasn't the only reason to choose a programming language, it is important to record changes in runtime performance based on scientific methods, instead of blog posts.
+
+In most of todays real-world applications, heavy computation does not take place. Therefore, Groovy is still a very good choice for a very large proportion of applications from that perspective.
+
+The talk can be found on Slideshare [<a href="http://www.slideshare.net/Russel_Winder/is-groovyasfastasjava">0</a>].
+<h3>Griffon Update</h3>
+<a href="http://blog.andresteingress.com/wp-content/uploads/2013/05/2013-05-24-09.31.18.jpg"><img class="alignright size-medium wp-image-2605" title="Gr8Conf 2013 - Andres Almiray" src="http://blog.andresteingress.com/wp-content/uploads/2013/05/2013-05-24-09.31.18-300x225.jpg" alt="" width="300" height="225" /></a>In the following session, Andres Almiray gave a Griffon update. Griffon is an application framework for building rich client-side applications. Initially forked from Grails, Griffon now comes with a wohle bunch of Griffon-specific features. Just on May 12th, Griffon 1.3.0 has been released [<a href="http://groovy.dzone.com/announcements/griffon-130-released">1</a>], Andres gave a brief overview of newly added features.
+
+The talk can be found on Slideshare [<a href="http://www.slideshare.net/aalmiray/griffon-update-gr8conf-2013">2</a>]
+<h3>Groovy Goodness</h3>
+Mr. Haki, the author of the highly frequented "Groovy Goodness" blog, did his yearly "Groovy Goodness" session right after Russel. He showed a bunch of neat and maybe already forgotten (for some of us) features, slumbering in the depths of the GDK - the Groovy Development Kit.
+
+Interesting was the use of <tt>@DelegatesTo</tt> and <tt>@TypeChecked</tt> to create compile-time checked mini DSLs. But also rather uncommon GDK methods on String or List have been shown.
+<h3>Spring 4 and Groovy 2</h3>
+<a href="http://blog.andresteingress.com/wp-content/uploads/2013/05/2013-05-24-12.07.18.jpg"><img class="alignleft size-medium wp-image-2606" title="Gr8Conf 2013 - Jürgen Höller" src="http://blog.andresteingress.com/wp-content/uploads/2013/05/2013-05-24-12.07.18-224x300.jpg" alt="" width="224" height="300" /></a>Guest speaker Jürgen Höller, creator of the Spring framework and principal Spring architect at Pivotal, told us more details about the integration of Groovy as first-level language besides Java into the Spring framework.
+
+Up to now, Spring comes with basic Groovy-supporting features. But Spring 4.0 aims to position Groovy as an alternative JVM programming language for Spring applications. As version 4.0 milestone 1 has been released just recently, Groovy support has not yet been added but is planned to be added to milestone 2, to be released end of July.
+
+For this milestone two important points are targeted:
+
+1. AOP treatment for Groovy classes
+2. Groovy DSL for Spring configurations
+
+Both points are already handled in Grails. For Spring this means, the Grails AOP configuration and exclusion rules are taken over to the Spring AOP framework. As well as the Grails Spring Bean builder [<a href="http://grails.org/doc/latest/guide/spring.html#14.3%20Runtime%20Spring%20with%20the%20Beans%20DSL">3</a>] which gives Spring 4.0 programmers the option to take advantage of this powerful Groovy DSL.
+
+Another issue that has been brought up, is automatic coercion of closure parameters. Right now, coercion has to be done manually in Groovy with the "as" operator. This leads to clunky code that can be reduced by automatic coercion.
+
+In addition to the Groovy "theme", Jürgen showed the usage of JDK8 in the first Spring 4.0 milestone and explained the JDK 8 lambda feature.
+<h3>Type checking your DSLs</h3>
+<a href="http://blog.andresteingress.com/wp-content/uploads/2013/05/2013-05-24-13.56.28.jpg"><img class="alignright size-medium wp-image-2607" title="Gr8Conf 2013 - Cédric Champeau" src="http://blog.andresteingress.com/wp-content/uploads/2013/05/2013-05-24-13.56.28-224x300.jpg" alt="" width="224" height="300" /></a>Cédric Champeau, one of the core Groovy committers and the creator of <tt>@CompileStatic</tt>, showed a new Groovy feature nown as "type checking extensions". Type checking extensions can be used to hook into the compilation process and apply custom checks. The checks aren't restricted to Groovy code, more advanced examples are type checked DSLs and compile-time checking of Strings in the program code (containing another language/syntax etc., think of SQL queries).
+
+The slides can be found at Github [<a href="https://github.com/melix/gr8confeu2013">4</a>]
+<h3>The next generation MOP</h3>
+Jochen Theodorou, long-time Groovy committer and part of the Pivotal (former VMWare, former SpringSource, former G2One) staff, gave a presentation on the weaknesses of the old meta-object protocol (MOP) and chances for the new MOP coming in Groovy 3.0. The session was full of in-depth information about the meta-object protocol, its history and conclusions for the new MOP. Jochen's main message was to underline the importance of a MOP specification. Without a specification, there are no single truths for certain edge-cases. What seems to be a bug, is a feature from the other perspective, making maintenance even harder. It is planned that Groovy 3.0 elimnates most of the cotchas from the current meta-object protocol. As to what degree this can take place, needs to be waited for.
+<h3>Geb - Totally Groovy Browser Automation</h3>
+<a href="http://blog.andresteingress.com/wp-content/uploads/2013/05/2013-05-24-17.12.02.jpg"><img class="alignleft size-medium wp-image-2608" title="Gr8Conf 2013 - Luke Daley" src="http://blog.andresteingress.com/wp-content/uploads/2013/05/2013-05-24-17.12.02-224x300.jpg" alt="" width="224" height="300" /></a>Luke Daley had the last talk of this years Gr8Conf. He presented Geb, a browser automation library with a Groovy DSL. Besides the implementation of simple web test scripts, Geb comes with a few patterns for structuring and encapsulating web testing code. In the spite of frequent markup changes, a good structure can certainly easen adjusting the web tests.
+
+<br><br><div>[0] <a href="http://www.slideshare.net/Russel_Winder/is-groovyasfastasjava">Slideshare: Is Groovy as Fast as Java?</a></div>
+<div>[1] <a href="http://www.slideshare.net/aalmiray/griffon-update-gr8conf-2013">Slideshare: Griffon Update</a></div>
+<div>[2] <a href="http://groovy.dzone.com/announcements/griffon-130-released">Griffon 1.3.0 has been released!</a></div>
+<div>[3] <a href="http://grails.org/doc/latest/guide/spring.html#14.3%20Runtime%20Spring%20with%20the%20Beans%20DSL">Grails Spring Bean Builder</a></div>
+<div>[4] <a href="https://github.com/melix/gr8confeu2013">Slides @ Github: Type Checking Groovy DSLs</a></div>

@@ -1,0 +1,40 @@
+---
+layout: post
+title: Groovy 2.1.0 Released!
+categories:
+- announcement
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _edit_last: '2'
+  _edit_lock: '1359103391'
+  _wp_old_slug: ''
+---
+<a href="http://groovy.codehaus.org"><img class="aligncenter size-medium wp-image-2391" title="Groovy 2.1.0 Released!" src="http://blog.andresteingress.com/wp-content/uploads/2013/01/groovy-logo-medium-300x149.png" alt="" width="300" height="149" /></a>
+
+Groovy 2.1.0 has been released today. This release comes with important additions for DSL authors, third party libraries and improved IDE support. Here are the changes as announced at Greach by Guillaume Laforge today [<a href="http://glaforge.appspot.com/article/groovy-2-1-is-released">0</a>]:
+<ul>
+	<li>complete invoke dynamic support when running with the "indy" JAR on JDK 7</li>
+	<li><tt>@DelegatesTo</tt> annotation: to help IDEs and the static type checker and compiler to know that method calls in a method parameter closure are delegated to another parameter of the method -- nice for DSLs like in Gradle build files</li>
+	<li>custom type checking extensions: so you can type check your DSLs at compile-time with your own logic</li>
+	<li>a meta-annotation system: which allows you to define a new annotation actually combining several others -- which also means being able to apply several AST transformations with a single custom annotation</li>
+	<li>compiler configuration script: to let you define various configuration options for the Groovy compiler, like specifying custom file extensions, various compilation customizers to apply, etc.
+compilation customizer builder: a special builder for specifying compilation customizers</li>
+</ul>
+I've decided to cover the most important features in separate blog posts:
+
+<a href="http://blog.andresteingress.com/2013/01/25/groovy-2-1-type-checking-extensions/">Groovy 2.1: Type Checking Extensions</a>
+<a href="http://blog.andresteingress.com/2013/01/25/groovy-2-1-the-annotationcollector-annotation/">Groovy 2.1: The @AnnotationCollector Annotation</a>
+<a href="http://blog.andresteingress.com/2013/01/25/groovy-2-1-groovyc-configscript/">Groovy 2.1: groovyc -configscript</a>
+<a href="http://blog.andresteingress.com/2013/01/25/groovy-2-1-the-delegatesto-annotation/">Groovy 2.1: The @DelegatesTo Annotation</a>
+
+If you wanna get in touch with 2.1 you can either download it at [<a href="http://groovy.codehaus.org/Download">1</a>] or - and that is a way better alternative - use GVM, the Groovy enVironment Manager [<a href="http://gvmtool.net/">2</a>].
+
+Keep on Groovying' :-)
+
+<br><br><div>[0] <a href="http://glaforge.appspot.com/article/groovy-2-1-is-released">Groovy 2.1 Release Notes</a></div>
+<div>[1] <a href="http://groovy.codehaus.org/Download">Groovy 2.1.0 Download</div>
+</a><div>[2] <a href="http://gvmtool.net/">GVM - The Groovy enVironment Manager</a></div>

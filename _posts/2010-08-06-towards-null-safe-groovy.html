@@ -1,0 +1,173 @@
+---
+layout: post
+title: Towards Null-Safe Groovy
+categories:
+- groovy
+- patterns
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_post_language: ''
+  _flattr_post_category: ''
+  _flattr_post_hidden: ''
+  _flattr_btn_disabled: ''
+  _syntaxhighlighter_encoded: '1'
+  _edit_last: '13220543'
+  _edit_lock: '1294152049'
+  jabber_published: '1281081472'
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1293720050";}";
+  _wp_old_slug: ''
+---
+<img src="http://andresteingress.files.wordpress.com/2010/08/grail-indybelieves.jpg" alt="" title="Indy Believes It" width="400" height="290" class="aligncenter size-full wp-image-803" />
+
+Currently I am implementing some experimental features from which some of them hopefully make it into GContracts next major release.
+
+One of the issue I've been playing with is support for null-safe aka void-safe code. The main idea is to let GContracts provide compile-time checks for null-safe code parts. Letting it be 'code parts' only is the first restriction which we will have to introduce. We all know <code>null</code> is evil, <b>but</b>: <em>null is not the new goto</em>.
+
+There are use-cases where assigning <code>null</code> to a variable might still be appropriate. Think of a double-linked list data-structure, where <code>null</code> could be needed to mark the first previous and the last next reference. However, the use of <code>null</code> more often leads to errors whenever a method call is executed on a variable which has been assigned to <code>null</code>.
+
+In order to provide compile-time checking of instance variables, local variables and parameters I added a new annotation to GContracts annotation package: <code>@NullSafe</code>:
+
+{% highlight java %} 
+@Retention(RetentionPolicy.SOURCE)
+@Target({ElementType.FIELD, ElementType.LOCAL_VARIABLE, ElementType.PARAMETER})
+public @interface NullSafe {}
+ {% endhighlight %}
+
+In addition, I added the <code>NullSafeASTTransformation</code> which is supposed to do the compile-time checking stuff. To do that, we need a set of rules which enforce null-safety for variables annotated with <code>@NullSafe</code>:
+
+<h4>Local Variables, Parameters</h4>
+
+Whenever a <b>local variable</b> or a <b>parameter</b> is marked as null-safe, only assignments to
+
+<ul><li>constants (except <code>null</code>)</li><li>other null-safe variables</ul>
+
+are allowed. The AST transformation done so far checks for local variables marked with <code>@NullSafe</code> and takes care of valid assignments. Whenever an assignment does not conform to the rules stated above, a compile-time error is thrown. E.g. the following source code snippet fails during compilation:
+
+{% highlight groovy %} 
+package tests
+
+import org.gcontracts.annotations.*
+
+class A {
+
+  def some_operation(@NullSafe def param1)  {
+     def bla = "test"
+     param1 = bla
+  }
+}
+
+BUG! exception in phase 'semantic analysis' in source unit 'script1281039992077748355994.groovy' param1 must be assigned to NullSafe variables!
+	at org.gcontracts.ast.visitor.NullSafeVisitor.visitBinaryExpression(NullSafeVisitor.java:62)
+ {% endhighlight %}
+
+The same applies for local variables:
+
+{% highlight groovy %} 
+package tests
+
+import org.gcontracts.annotations.*
+
+class A {
+
+  def some_operation()  {
+     @NullSafe def bla = "test"
+     def otherBla = "test2"
+
+     bla = otherBla
+  }
+}
+
+package tests
+
+import org.gcontracts.annotations.*
+
+class A {
+
+  def some_operation()  {
+     @NullSafe def bla = "test"
+     def otherBla = "test2"
+
+     bla = otherBla
+  }
+}
+
+BUG! exception in phase 'semantic analysis' in source unit 'script12810425282531878012710.groovy' bla must be assigned to NullSafe variables!
+	at org.gcontracts.ast.visitor.NullSafeVisitor.visitBinaryExpression(NullSafeVisitor.java:31)
+ {% endhighlight %}
+
+Notice, the last code snippet won't compile according to the rules defined above, as an assignment of a not-null safe variable to a null-safe variable is not valid. If we want to pass compile-time checks, we simply had to annotate <code>otherBla</code> as <code>@NullSafe</code>.
+
+<h4>Instance Variables, Fields</h4>
+
+Instance variables need to be assigned to a non-null value whenever the construction of the according object is finished, thus the object complies to the explicit class invariant. Whenever a method is called an assignment to <code>null</code> would trigger a compile-time failure:
+
+{% highlight groovy %} 
+package tests
+
+import org.gcontracts.annotations.*
+
+class A {
+
+  @NullSafe String myProp
+
+  def A()  {
+    myProp = "test"
+  }
+
+  def some_op() { myProp = null }
+}
+
+BUG! exception in phase 'semantic analysis' in source unit 'script12810407257201736681757.groovy' myProp must be assigned to NullSafe variables!
+	at org.gcontracts.ast.visitor.NullSafeVisitor.visitBinaryExpression(NullSafeVisitor.java:59)
+ {% endhighlight %}
+
+<h4>Assignments from Non-Void Method Calls</h4>
+
+In fact, this is only half the story. Whenever a variable is assigned to the return value of a method, we have no simple way to check at compile-time whether that method returns <code>null</code>. A possible solution for solving this scenario in terms of keeping code null-safe is to specify variable default values via annotation closures (btw: here starts the part I actually did not implement by now, so don't get confused with the annotation class above):
+
+{% highlight groovy %} 
+package tests
+
+import org.gcontracts.annotations.*
+
+class A {
+
+  def some_op() {
+      @NullSafe({ "empty" }) def i = "aloha"
+
+      i = some_function()
+      // at this point, i will be "empty" not null!
+  }
+
+  def some_function() { return null }
+}
+ {% endhighlight %}
+
+The default value is assigned only when an assignment to the null-safe variable would result in a <code>null</code> reference.
+
+Annotation closures would provide great flexibility to define arbitrary complex initialization code:
+
+{% highlight groovy %} 
+
+class Address {
+
+    @NullSafe({ new City(name: 'dummy') }) City city
+    // ...
+}
+
+ {% endhighlight %}
+
+
+An alternative approach would be to annotate methods as <code>@NullSafe</code>, which would avoid calling methods not being marked with <code>@NullSafe</code> in null-safe assignments.
+
+<h4>What's next?</h4>
+
+That's it with my experimental <code>@NullSafe</code> feature. I know that this is a naive first approach, but at least its a starting point and I would really appreciate your feedback on this topic either in this article's comment section or at the Groovy-Dev mailing list [<a href="http://groovy.329449.n5.nabble.com/Towards-Null-Safe-Groovy-tp2266405p2266405.html">1</a>].
+
+It would be very important to know whether this method works or if it is not applicable in real-world projects from your point of view. One issue is, that although GContracts uses AST transformations, it is not an integral part of the programming language, which could result in e.g. meta- or reflection-calls which make null-safe variables null etc. Just imagine Hibernate injecting null values into <code>@NullSave</code> instance variables - levering null-safe variables immediately . In fact, this is the point I am not completely clear about - does it make sense to introduce such a feature at library/AST transformation level?
+
+<br><br><div>[0] <a href="http://github.com/andresteingress/gcontracts">GContracts - Project Home Page</a></div>
+<div>[1] <a href="http://groovy.329449.n5.nabble.com/Towards-Null-Safe-Groovy-tp2266405p2266405.html">Groovy-Dev mailing list @ nabble</a></div>

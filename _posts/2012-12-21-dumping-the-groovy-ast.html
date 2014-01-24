@@ -1,0 +1,64 @@
+---
+layout: post
+title: 'Groovy Quickie: Dumping the Groovy AST'
+categories:
+- ast transformations
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _edit_last: '2'
+  _edit_lock: '1356094750'
+  _syntaxhighlighter_encoded: '1'
+  _wp_old_slug: ''
+---
+Lately I had a strange bug in a project-specific AST transformation that caused me to look for ways to directly use the Groovy AST browser from within the affected components. 
+
+<h3>Printing the AST tree</h3>
+
+I came accross this posting [<a href="http://groovy.329449.n5.nabble.com/AST-Browser-from-code-td4419006.html">0</a>] by Cédric Champeau, himself one of the Groovy core comitters. In the mailing list Hamlet D'Arcy pointed to <tt>AstNodeToScriptAdapter</tt> [<a href="http://svn.codehaus.org/groovy/trunk/groovy/groovy-core/src/main/groovy/inspect/swingui/AstNodeToScriptAdapter.groovy">1</a>], a class utilized by the AST browser to compile Groovy code to a given compile phase and decompile the result back to Groovy code.
+
+One way to add logging the AST tree to the console with this class would be to introduce a compilation customizer [<a href="http://groovy.codehaus.org/api/org/codehaus/groovy/control/customizers/CompilationCustomizer.html">2</a>] and simply pass the current <tt>ClassNode</tt> instance to the script adapter:
+
+[source language="groovy"]
+
+class LoggingCompilationCustomizer extends CompilationCustomizer {
+
+  final PrintStream out
+
+  LoggingCompilationCustomizer(CompilePhase compilePhase, PrintStream out) {
+    super(compilePhase)
+    this.out = out
+  }
+
+  void call(SourceUnit source, GeneratorContext context, ClassNode classNode) throws CompilationFailedException {
+		
+    StringWriter writer = new StringWriter()
+    new AstNodeToScriptVisitor(writer).visitClass(classNode)
+		
+    out.println writer
+  }
+}
+
+[/source]
+
+Once the customizer is defined it can be used by registering it with a <tt>GroovyShell</tt> object:
+
+[source language="groovy"]
+
+def config = new CompilerConfiguration()
+config.addCompilationCustomizers(new LoggingCompilationCustomizer(CompilePhase.SEMANTIC_ANALYSIS, System.out))
+		
+shell = new GroovyShell(config)
+
+[/source]
+
+<h3>Conclusion</h3>
+
+The <tt>AstNodeToScriptVisitor</tt> is a class used by the Groovy AST browser to render Groovy code from a specific compile phase. When debugging AST transformations it can sometimes be an advantage to dump the actual AST source code to immediately see AST issues.
+
+<br><br><div>[0] <a href="http://groovy.329449.n5.nabble.com/AST-Browser-from-code-td4419006.html">Nabble: AST browser from code</a></div>
+<div>[1] <a href="http://svn.codehaus.org/groovy/trunk/groovy/groovy-core/src/main/groovy/inspect/swingui/AstNodeToScriptAdapter.groovy">groovy.inspect.swingui.AstNodeToScriptAdapter</a></div>
+<div>[2] <a href="http://groovy.codehaus.org/api/org/codehaus/groovy/control/customizers/CompilationCustomizer.html">org.codehaus.groovy.control.customizers.CompilationCustomizer</a></div>

@@ -1,0 +1,264 @@
+---
+layout: post
+title: Unit Testing Groovy AST Transformations
+categories:
+- ast transformations
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_post_language: en_GB
+  _flattr_post_category: text
+  _flattr_post_hidden: '0'
+  _flattr_btn_disabled: ''
+  _syntaxhighlighter_encoded: '1'
+  _edit_last: '1'
+  _edit_lock: '1295331721'
+  jabber_published: '1276851725'
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1293719886";}";
+---
+Groovy 1.6 introduced the concept of <i>AST transformations</i>. The basic concepts of global and local AST transformations have already been described in a separate blog-post [<a href="http://andresteingress.wordpress.com/2010/03/16/implementing-a-serializable-annotation-with-groovy-ast-transformations/">0</a>] and will not be part of this article.
+
+Writing AST transformations and therefore modifying Groovy's compilation process is pretty easy. Depending on the type of AST transformation (local or global) groovyc will find <tt>ASTTransformation</tt> classes in its classpath and will apply them in the specified compilation phase (e.g. <tt>SEMANTIC_ANALYSIS</tt>).
+
+So far so good. But if you are dealing with more complex AST transformations chances are you probably want to write unit tests that ensure the provided functionality.
+
+<h4>The @Serializable Annotation</h4>
+
+Let's consider the local AST transformation of a previous blog-post [<a href="http://andresteingress.wordpress.com/2010/03/16/implementing-a-serializable-annotation-with-groovy-ast-transformations/">0</a>]:
+
+{% highlight groovy %} 
+@GroovyASTTransformation(phase=CompilePhase.SEMANTIC_ANALYSIS)
+class SerializableASTTransformation implements ASTTransformation {
+
+  void visit(ASTNode[] nodes, SourceUnit source) {
+    if (nodes == null || nodes.size() == 0) return
+
+    if (!(nodes[0] instanceof AnnotationNode) || !(nodes[1] instanceof AnnotatedNode)) {
+      throw new GroovyBugError("@Serializable must only be applied at type level!")
+    }
+
+    AnnotatedNode parent = (AnnotatedNode) nodes[1]
+    AnnotationNode node = (AnnotationNode) nodes[0]
+
+    if (parent instanceof ClassNode) {
+      ClassNode classNode = (ClassNode) parent
+
+      classNode.addInterface(ClassHelper.makeWithoutCaching(java.io.Serializable.class));
+    }
+  }
+}
+ {% endhighlight %}
+
+It implements the AST transformation for a <tt>@Serializable</tt> annotation that marks classes as serializable. The transformations adds the <tt>java.io.Serializable</tt> interface to the class definition. Note that the transformation class <tt>SerializableASTTransformation</tt> is written in Groovy and therefore needs to be compiled with groovyc.
+
+<h4>Testing AST Transformations</h4>
+
+<blockquote>The main question when dealing with AST transformations is how to test them properly.</blockquote>
+
+Independent of the chosen implementation, a test workflow for AST transformations must cover the following steps:
+
+1. Compile the AST transformation class + all dependent classes/annotations etc.
+2. Compile the test cases using the previously compiled AST transformation classes
+
+It is obvious that these two steps can't be done in a single compilation run. Using a single compilation run, whenever trying to compile either 1. or 2. will fail with a compilation error. Thus to test AST transformations a test workflow needs to be implemented that runs in two separate compilation runs.
+
+The first possibility would be to let your IDE handle these two separate phases. In IntelliJ, Eclipse etc. it would be easy to establish a configuration where the AST transformation classes are bundled in a separate module which is compiled to a JAR during build time. That jar can than be used to execute test cases using the bundled AST transformations. I wont provide any details on this appraoch since it has a significant drawback: with this setup debugging AST transformations is not possible.
+
+Since groovyc determines AST transformation classes we would need to execute groovyc in debug mode. Take a look at the following source snippet from Groovy's CompilationUnit:
+
+{% highlight groovy %} 
+public CompilationUnit(..)  {
+  // ...
+  addPhaseOperation(compileCompleteCheck, Phases.CANONICALIZATION);
+  addPhaseOperation(classgen, Phases.CLASS_GENERATION);
+  addPhaseOperation(output);
+
+  ASTTransformationVisitor.addPhaseOperations(this);
+  // ...
+}
+ {% endhighlight %}
+
+Class <tt>ASTTransformationVisitor</tt> is the class that reads local and global AST transformations and adds them to the specified compilation phases, e.g. in the case of local AST transformations:
+
+{% highlight groovy %} 
+for (CompilePhase phase : CompilePhase.values()) {
+  final ASTTransformationVisitor visitor = new ASTTransformationVisitor(phase);
+  switch (phase) {
+  	case INITIALIZATION:
+    case PARSING:
+    case CONVERSION:
+    // with transform detection alone these phases are inaccessible, so don't add it
+    break;
+
+    default:
+    	compilationUnit.addPhaseOperation(new CompilationUnit.PrimaryClassNodeOperation() {
+        	public void call(SourceUnit source, GeneratorContext context, ClassNode classNode) throws CompilationFailedException {
+            	visitor.source = source;
+                visitor.visitClass(classNode);
+            }, phase.getPhaseNumber());
+        break;
+    }
+}
+ {% endhighlight %}
+
+To sum up: we need another way to debug AST transformations.
+
+<h4>A Custom <tt>GroovyClassLoader</tt></h4>
+
+Another possiblity - and this is the preferred approach - is to use a custom <tt>GroovyClassLoader</tt> which allows to programmatically add a list of AST transformations.
+
+GContracts [<a href="http://github.com/andresteingress/gcontracts">1</a>] is a Groovy extension that uses AST transformations to provide Design by Contract(tm) for Groovy. In order to built a reliable test suite two points were of importance:
+
+1. Debugging support was absolutely necessary for building a library like GContracts
+2. Tests need to be written really, really fast which implies small configuration and bootstrapping effort
+
+In order to achieve these goals a base test class extending <tt>GroovyTestCase</tt> was implemented. <tt>BaseTestClass</tt> offers the most important utility methods to its descendants:
+
+{% highlight groovy %} 
+class BaseTestClass extends GroovyTestCase {
+
+  private groovy.text.TemplateEngine templateEngine
+  private ASTTransformationTestsGroovyClassLoader loader;
+
+  protected void setUp() {
+    super.setUp();
+
+    templateEngine = new GStringTemplateEngine()
+
+    loader = new ASTTransformationTestsGroovyClassLoader(getClass().getClassLoader(), [
+            // add AST transformations to test...
+            new ContractValidationASTTransformation(),
+            new ClosureAnnotationErasingASTTransformation()
+    ], CompilePhase.SEMANTIC_ANALYSIS)
+  }
+
+  String createSourceCodeForTemplate(final String template, final Map binding)  {
+    templateEngine.createTemplate(template).make(binding).toString()
+  }
+
+  def create_instance_of(final String sourceCode)  {
+    return create_instance_of(sourceCode, new Object[0])
+  }
+
+  def create_instance_of(final String sourceCode, def constructor_args)  {
+
+    def clazz = add_class_to_classpath(sourceCode)
+
+    return clazz.newInstance(constructor_args as Object[])
+  }
+
+  def add_class_to_classpath(final String sourceCode)  {
+    loader.parseClass(sourceCode)
+  }
+}
+ {% endhighlight %}
+
+As can be seen in the code above, method <tt>setUp</tt> is used to create a custom <tt>GroovyClassLoader</tt> which allows specification of additional AST transformations at a specified compilation phase (in this case it is <tt>CompilationPhase.SEMANTIC_ANALYSIS</tt>). The classloader is used to create classes with transformations already applied.
+
+Let us take a look at how the base test class can be extended by descendants:
+
+{% highlight groovy %} 
+class OldVariablePostconditionTests extends BaseTestClass {
+
+  def templateSourceCode = '''
+package tests
+
+import org.gcontracts.annotations.Invariant
+import org.gcontracts.annotations.Requires
+import org.gcontracts.annotations.Ensures
+
+class OldVariable {
+
+  private $type someVariable
+
+  def OldVariable(final $type other)  {
+    someVariable = other
+  }
+
+  @Ensures({ old -> old.someVariable != null &amp;&amp; old.someVariable != someVariable })
+  def void setVariable(final $type other)  {
+    this.someVariable = other
+  }
+}
+'''
+
+  void test_big_decimal()  {
+
+    def instance = create_instance_of(createSourceCodeForTemplate(templateSourceCode, [type: BigDecimal.class.getName()]), new BigDecimal(0))
+    instance.setVariable new BigDecimal(1)
+  }
+
+
+  void test_big_integer()  {
+    def instance = create_instance_of(createSourceCodeForTemplate(templateSourceCode, [type: BigInteger.class.getName()]), new BigInteger(0))
+    instance.setVariable new BigInteger(1)
+  }
+
+  void test_string()  {
+    def instance = create_instance_of(createSourceCodeForTemplate(templateSourceCode, [type: String.class.getName()]), ' ')
+    instance.setVariable 'test'
+  }
+
+  void test_integer()  {
+    def instance = create_instance_of(createSourceCodeForTemplate(templateSourceCode, [type: Integer.class.getName()]), new Integer(0))
+    instance.setVariable new Integer(1)
+  }
+
+  void test_float()  {
+    def instance = create_instance_of(createSourceCodeForTemplate(templateSourceCode, [type: Float.class.getName()]), new Float(0))
+    instance.setVariable new Float(1)
+  }
+  // ...
+}
+ {% endhighlight %}
+
+This test class was directly copied from GContracts' test suite. It checks whether the so-called <i>old variable</i> behaves correctly for value types. Notice that property <tt>templateSourceCode</tt> just specifies a class template which is completed by <tt>createSourceCodeForTemplate</tt> using Groovy's <tt>GStringTemplateEngine</tt> [<a href="http://groovy.codehaus.org/api/groovy/text/GStringTemplateEngine.html">2</a>].
+
+<tt>create_instance_of</tt> is than used to directly get an instance of the class which is specified in the given source code string:
+
+{% highlight groovy %} 
+// ...
+def instance = create_instance_of(source, new Float(0))
+// ...
+ {% endhighlight %}
+
+Alternatively, clients might use <tt>add_class_to_classpath</tt> to create an instance of the class object at first, splitting instance creation into two steps.
+
+With this knowledge, a test case for the <tt>@Serializable</tt> annotation could look like this:
+
+{% highlight groovy %} 
+class SerializeableASTTransformationTests extends BaseTestClass {
+
+  def source = '''
+package tests
+
+import org.ast.*
+
+@Serializable
+class A {
+}
+
+'''
+
+  def void test_add_serializable_to_concrete_class()  {
+    def a = create_instance_of(source)
+
+    def interface_name = java.io.Serializable.class.getName()
+
+    assertTrue "a must implement $interface_name", a.class.getInterfaces().any { it.name == interface_name }
+  }
+}
+ {% endhighlight %}
+
+<h4>Conclusion</h4>
+
+The beauty of this appraoch is that AST transfrormations can be debugged and can therefore be executed out of the chosen build management tool. This is possible due to splitting the overall compilation run into two independent runs: a static and a dynamic (using GroovyClassLoader at runtime) run.
+
+In addition, using Groovy's <tt>GStringTemplateEngine</tt>, source code and the according class objects can be built at runtime which is a hughe performance boost in terms of test case writing time.
+
+<br><br><div>[0] <a href="http://andresteingress.wordpress.com/2010/03/16/implementing-a-serializable-annotation-with-groovy-ast-transformations/">Implementing a @Serializable annotation with Groovy AST transformations</a></div>
+<div>[1] <a href="http://github.com/andresteingress/gcontracts">GContracts - Contract-Oriented Programming for Groovy</a></div>
+<div>[2] <a href="http://groovy.codehaus.org/api/groovy/text/GStringTemplateEngine.html">Groovy's GStringTemplateEngine</a></div>

@@ -1,0 +1,108 @@
+---
+layout: post
+title: GVM - the Groovy enVironment Manager
+categories:
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _wp_old_slug: ''
+  _edit_last: '2'
+  _edit_lock: '1355516025'
+  _syntaxhighlighter_encoded: '1'
+---
+Marco Vermeulen [<a href="https://twitter.com/marcoVermeulen">0</a>] created a new tool that supports in keeping track and switching between different versions of Groovy(-influenced) software development kits: <strong>GVM</strong> [<a href="http://gvmtool.net">1</a>]. 
+
+At the time of writing, GVM namely supports Groovy, Grails, Griffon, Gradle and Vert.x. GVM itself is a command-line tool based on the Bash shell, depending on <tt>curl</tt> and <tt>unzip</tt> to be pre-installed on target systems only.
+
+<h3>Get it while its hot</h3>
+
+The installation is actually a single <tt>curl</tt> command-line call. Open your command-line and type the following line:
+
+[sourcecode]
+curl -s get.gvmtool.net | bash
+[/sourcecode]
+
+the following output should indicate a successful installation
+
+[sourcecode]
+Thanks for using                                                     
+                                                                     
+_____/\\\\\\\\\\\\__/\\\________/\\\__/\\\\____________/\\\\_        
+ ___/\\\//////////__\/\\\_______\/\\\_\/\\\\\\________/\\\\\\_       
+  __/\\\_____________\//\\\______/\\\__\/\\\//\\\____/\\\//\\\_      
+   _\/\\\____/\\\\\\\__\//\\\____/\\\___\/\\\\///\\\/\\\/_\/\\\_     
+    _\/\\\___\/////\\\___\//\\\__/\\\____\/\\\__\///\\\/___\/\\\_    
+     _\/\\\_______\/\\\____\//\\\/\\\_____\/\\\____\///_____\/\\\_   
+      _\/\\\_______\/\\\_____\//\\\\\______\/\\\_____________\/\\\_  
+       _\//\\\\\\\\\\\\/_______\//\\\_______\/\\\_____________\/\\\_ 
+        __\////////////__________\///________\///______________\///__
+                                                                     
+                                       Will now attempt installing...
+                                                                     
+Looking for a previous installation of GVM...
+Looking for JAVA_HOME...
+Validating JAVA_HOME...
+Looking for unzip...
+Looking for curl...
+Installing gvm scripts...
+Creating candidate directories...
+Attempting to update bash profile...
+All done!
+[/sourcecode]
+
+Once this is done and you restart the terminal, the <tt>gvm</tt> script should be available in your path.
+
+<h3>Installing and Switching Between Multiple Groovy Versions (<= awesome)</h3>
+
+Once the <tt>gvm</tt> command is available, we can call <tt>gvm help</tt> to see an overview of the supported commands and arguments:
+
+[sourcecode]
+Usage: gvm &lt;command&gt; &lt;candidate&gt; [version]
+
+   command    :  install, uninstall, list, use, current, version, default, selfupdate, broadcast or help
+   candidate  :  groovy, grails, griffon, gradle, vert.x
+   version    :  optional, defaults to latest stable if not provided
+[/sourcecode]
+
+Now let's say we wanted to install multiple Groovy versions. With GVM this ain't no rocket science anymore. To install the most current version of Groovy (or one of the other supported software kits), you have to execute
+
+[sourcecode]
+gvm install groovy
+
+Downloading: groovy 2.0.5
+
+[...]
+
+Installing: groovy 2.0.5
+Done installing!
+
+Do you want to use groovy 2.0.5 now? (Y/n): Y
+
+groovy -version
+Groovy Version: 2.0.5 JVM: 1.6.0_37 Vendor: Apple Inc. OS: Mac OS X
+[/sourcecode]
+
+To install another version of the Groovy programming language, we just have to append the appropriate version number:
+
+[sourcecode]
+gvm install groovy 1.8.8
+[/sourcecode]
+
+And now comes the crux: switching between Groovy, Grails, Griffon, Gradle or Vert.x versions is done with a single line in the command-line:
+
+[sourcecode]
+gvm use groovy 1.8.8
+
+groovy -version
+Groovy Version: 1.8.8 JVM: 1.6.0_37 Vendor: Apple Inc. OS: Mac OS X
+[/sourcecode]
+
+<h3>Conclusion</h3>
+
+Switching between different development branches with different framework versions (e.g. of Grails) has been with some pain until now. GVM as a great tool for easily keeping track of and switching between multiple software kit versions.
+
+<br><br><div>[0] <a href="https://twitter.com/marcoVermeulen">Marco Vermeulen @ Twitter</a></div>
+<div>[1] <a href="http://gvmtool.net">GVM - Project Homepage</a></div>

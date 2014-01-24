@@ -1,0 +1,65 @@
+---
+layout: post
+title: Groovy Quick Tip - The groovy.util.logging Package
+categories:
+- grails
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _edit_last: '2'
+  _edit_lock: '1386862677'
+  _syntaxhighlighter_encoded: '1'
+  _wp_old_slug: ''
+---
+The <tt>groovy.util.logging</tt> package comes with a bunch of annotations. Each of the annotations adds logging capabilities of a particular logging library to the class where it is applied.
+
+For example, let us have a look at the <tt>@Log4j</tt> [<a href="http://groovy.codehaus.org/api/groovy/util/logging/Log4j.html">0</a>] annotation. As its name implies, it is used in projects that use the Log4j logging library [<a href="http://logging.apache.org/log4j/1.2/">1</a>]. Getting <tt>@Log4j</tt> into play for a Groovy class is simple, we can do so by just annotating the class with the <tt>@Log4j</tt> annotation on the type level:
+
+{% highlight java %} 
+@Log4j
+class ItemRepository {
+
+    void create(String name)  {
+
+        // ...
+        log.info "created a new item named ${name}, identifier ${item.id}"
+
+    }
+}
+ {% endhighlight %}
+
+As you might have guessed from the source code example, the <tt>@Log4j</tt> annotation does not "only" annotate the class. It triggers an AST transformation that adds a <tt>private static final Logger</tt> field to the <tt>ItemRepository</tt> class. That field can now be used as if it were manually specified in this class.
+
+There is another cool feature that is only visible from the AST browser in groovyConsole. When we have a look for the code that is generated for the code line above,
+
+{% highlight java %} 
+log.info "created a new item named ${name}, identifier ${item.id}"
+ {% endhighlight %} 
+
+we can see in the "class generation" compile phase the code was changed to
+
+{% highlight java %} 
+log.isInfoEnabled() ? log.info "created a new item named ${name}, identifier ${item.id}" : ""
+ {% endhighlight %} 
+
+Isnt' that cool? The AST transformation automatically detected a GString and therefore wrapped the <tt>info</tt> method call in a conditional block that is only executed when the INFO log level is active at runtime.
+
+If we would have written something like 
+
+{% highlight java %} 
+log.info "created a new item"
+ {% endhighlight %} 
+
+the AST transformation would see that the argument is of type <tt>java.lang.String</tt> and wouldn't add a conditional log statement.
+
+I know that this isn't a particular issue to Log4j, as Burt Beckwidth already explained here [<a href="http://burtbeckwith.com/blog/?p=81">2</a>]. But be aware that <tt>@Log4j</tt> isn't the only logging annotation Groovy provides. In fact it's a so called <tt>@Log</tt> variant annotation. Besides the original <tt>@Log</tt> for the Java logging support, there are a bunch of such variant annotations: <tt>@Log4j</tt>, <tt>@Slf4j</tt>, <tt>@Commons</tt> and <tt>@Log4j2</tt> included in the current Groovy 2.2 release candidate [<a href="http://glaforge.appspot.com/article/release-candidate-for-groovy-2-2">3</a>].
+
+However, I've found that this is a Groovy feature that is not widely known though I'm using it every day. So keep on groovying with Groovy's logging annotations!
+
+<br><br><div>[0] <a href="http://groovy.codehaus.org/api/groovy/util/logging/Log4j.html">Groovy Log4j Annotation - http://groovy.codehaus.org/api/groovy/util/logging/Log4j.html</a></div>
+<div>[1] <a href="http://logging.apache.org/log4j/1.2/">Apache Log4J - http://logging.apache.org/log4j/1.2/</a></div>
+<div>[2] <a href="http://burtbeckwith.com/blog/?p=81">Burt Beckwith - Performance Issues with GStrings</a></div>
+<div>[3] <a href="http://glaforge.appspot.com/article/release-candidate-for-groovy-2-2">Guillaume Laforge - Groovy 2.2 Release Candidate</a></div>

@@ -1,0 +1,289 @@
+---
+layout: post
+title: GContracts 1.2.0 Released!
+categories:
+- gcontracts
+- groovy
+- releases
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _edit_last: '2'
+  _edit_lock: '1300139625'
+  _flattr_post_language: en_GB
+  _flattr_post_category: text
+  _flattr_post_hidden: '0'
+  _flattr_btn_disabled: ''
+  _wp_old_slug: ''
+  _syntaxhighlighter_encoded: '1'
+---
+I am proud to announce the release of GContracts 1.2.0 [<a href="https://github.com/andresteingress/gcontracts">0</a>], the AST transformation framework enabling programmers to use contracts (aka Design by Contract<sup>&trade;</sup>) in Groovy.
+
+GContracts is completely done in Java without external dependencies to other frameworks/libraries. Although GContracts uses annotation closures, it supports Groovy 1.7 and above.
+
+1.2.0 comes with a whole bunch of improvements, bug fixes and features. This announcement will give a short overview of the most important ones. As time goes by, i'll post a series of articles covering 1.2 features in greater detail.
+
+<h3>Support for Groovy Interfaces</h3>
+
+Before 1.2, <code>@Requires</code> and <code>@Ensures</code> have only been supported in concrete or abstract classes. The new version allows pre- and postconditions to appear in either concrete classes, abstract classes or interfaces.
+
+Example:
+{% highlight groovy %} 
+@Contracted
+package batch
+
+import org.gcontracts.annotations.*
+
+interface Stackable {
+    
+    @Requires({ item != null })
+    def push(def item)
+
+    @Requires({ !isEmpty() })
+    @Ensures({ result != null })
+    def pop()
+
+    def isEmpty()
+}
+
+class Batch implements Stackable {
+    
+    def myCards = []    
+
+    def push(def card)  {
+      myCards << card
+    }    
+
+    def pop()  { myCards[-1] }
+
+    def isEmpty() { myCards.size() == 0 }
+}
+
+def batch = new Batch()
+batch.push(null)
+
+// results in 
+org.gcontracts.PreconditionViolation: <org.gcontracts.annotations.Requires> Stackable.java.lang.Object push(java.lang.Object) 
+
+item != null
+|    |
+null false
+ {% endhighlight %}
+
+Cont'd Example:
+{% highlight groovy %} 
+class AnotherBatch extends Batch {
+    def pop() { return null }
+}
+
+def batch = new AnotherBatch()
+batch.push(1)
+batch.pop()
+
+// results in 
+
+org.gcontracts.PostconditionViolation: <org.gcontracts.annotations.Ensures> Stackable.java.lang.Object pop() 
+
+result != null
+|      |
+null   false
+ {% endhighlight %}
+
+<h3>Enabling Contract Injection with @Contracted</h3>
+
+Although GContracts supports Java's <code>-ea</code> and <code>-da</code> vm parameters to enable and disable assertions, 1.2 is more restrictive when it comes to applying AST transformations. Only classes or packages annotated with <code>@Contracted</code> will be processed during compilation runs. 
+
+<code>@Contracted</code> can be applied at package- or type-level. If applied on a sub-type, the assertions of predecessors will still be evaluated.
+
+<h3>The <code>ContractGroovyDoc</code> Ant Task</h3>
+
+The <code>ContractGroovyDoc</code> class is based on Groovy's <code>Groovydoc</code> Ant task, but adds class-invariants, pre- and postconditions to the resulting HTML documentation.
+
+Example:
+<a href="http://blog.andresteingress.com/wp-content/uploads/2011/03/screen.png"><img src="http://blog.andresteingress.com/wp-content/uploads/2011/03/screen-1024x553.png" alt="ContractGroovyDoc Example Screen" title="ContractGroovyDoc Example Screen" width="640" height="345" class="aligncenter size-large wp-image-1258" /></a>
+
+<h3>Extending GContracts with Annotation Contracts and Annotation Processors</h3>
+
+1.2 comes with the ability to define common pre- and postconditions as reusable annotations. These are called <i>Annotation Contracts</i>.  
+
+An annotation contract is a Groovy annotation annotated with the following meta-annotations:
+
+<ul>
+<li><code>@Precondition</code> or <code>@Postcondition</code>: indicates that the annotation contract condition will be part of the precondition and/or postcondition</li>
+<li><code>@AnnotationContract</code>: specifies the boolean condition which will be part of either the pre- or postcondition, or both. The boolean condition is declared using an annotation closure. Although annotation closures are officially supported since Groovy 1.8, GContracts uses a customized version of class <code>ClosureWriter</code> to enable annotation closures with 1.7.x code.
+</ul>
+
+Example:
+{% highlight groovy %} 
+    import org.gcontracts.annotations.*
+    import org.gcontracts.annotations.meta.*
+    import java.lang.annotation.*
+
+    // ### Annotation Contract Definition
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target(ElementType.PARAMETER)
+
+    @Precondition
+    @AnnotationContract({ it != null })
+    public @interface NotNull {}
+
+    // ### Applying the Annotation Contract
+    class BankAccount {
+        
+        def deposit(@NotNull def param) {
+           // ...
+        }
+    }
+ {% endhighlight %}
+
+Since annotation contract capabilities are limited when it comes to defining complex assertions, an additional mechanism has been introduced: <i>Annotation Processors</i>.
+
+An annotation processor implements the <code>AnnotationProcessor</code> interface, and will be called automatically by GContracts during the AST transformation process, if applied on some annotation with the <code>@AnnotationProcessorImplementation</code> meta-annotation.
+
+Example:
+
+{% highlight java %} 
+// ### Annotation Processor Implementation
+public class RequiresAnnotationProcessor extends AnnotationProcessor {
+
+    @Override
+    public void process(ProcessingContextInformation processingContextInformation, Contract contract, ClassNode classNode, MethodNode methodNode, BooleanExpression booleanExpression) {
+        // ...
+        // utilize GContracts domain model to add e.g. another precondition
+        contract.preconditions().or(methodNode, new Precondition(booleanExpression));
+    }
+}
+
+// ### Applying the Annotation Processor Implementation
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.CONSTRUCTOR, ElementType.METHOD})
+
+@Precondition
+@AnnotationProcessorImplementation(RequiresAnnotationProcessor.class)
+public @interface Requires {
+    Class value();
+}
+ {% endhighlight %}
+
+<h3>The Domain Model</h3>
+
+As you might have noticed in the previous code sample of the <code>AnnotationProcessor</code> implementation, GContracts 1.2 comes with its own core domain classes, with <code>Contract</code> being the root aggregate entity.
+
+Currently, the domain model is rather simple. A contracts consists of a class invariant and multiple methods with pre- and postconditions. 
+
+Example:
+{% highlight groovy %} 
+// the contract domain object is usually created internally ...
+def myBooleanExpression = createMyBooleanExpression()
+contract.preconditions().join(method, myBooleanExpression)
+ {% endhighlight %}
+
+But the introduction of a separate domain model should lead to a better separation between low-level AST transformations and modification of certain assertion parts.
+
+Be aware that the domain model itself is not supposed to be stable in 1.2, interfaces might change and new domain classes might be introduced.
+
+<h3>Lifecycle Hooks</h3>
+
+In addition to annotation contracts and annotation processor implementations, there exists another way to hook into GContracts AST transformation process: using <code>Lifecycle</code> implementations. 
+
+A <code>Lifecycle</code> implementation has to be specified in <tt>META-INF/services/org.gcontracts.common.spi.Lifecycle</tt> and is automatically instantiated before the AST transformation process starts. The interface provides a number of hooks which allow to inject arbitrary AST transformation logic.
+
+<h3>Assertion Cycle Detection</h3>
+
+Before 1.2, users could run into <code>StackOverflowError</code> exceptions due to cyclic assertion calls.
+
+Example:
+{% highlight groovy %} 
+class Box {
+   
+   @Ensures({ !isFull() })
+   def isEmpty() { return true }
+   
+   @Ensures({ !isEmpty() })
+   def isFull() { return false }
+}
+
+def box = new Box()
+box.isFull()
+ {% endhighlight %}
+
+1.2 keeps track of the method call stack in assertion statements and throws a <code>CircularcAssertionCallException</code> if it detects circular method calls from within assertion statements.
+
+{% highlight groovy %} 
+org.gcontracts.CircularAssertionCallException: Method 'isFull' has already been called from the current assertion - assertion call cycle detected!
+ {% endhighlight %}
+
+<h3>Assertion Violation Tracking</h3>
+
+Before 1.2, inherited preconditions have not been evaluated correctly. This has been solved by introducing the assertion violation tracking mechanism, which allows full evaluation of all preconditions in the inheritance path.
+
+Let's assume we've got the following setup:
+
+{% highlight groovy %} 
+
+class Root {
+   @Requires( { true } )
+   def some_method()
+}
+
+class Descendant extends Root {
+   @Requires( { false } )
+   def some_method()
+}
+
+class DescendantDescendant extends Descendant {
+   @Requires( { false } )
+   def some_method()
+}
+
+def dd = new DescendantDescendant()
+ {% endhighlight %}
+
+Whenever <code>dd.some_method()</code> is invoked, the following assertion statement gets triggered:
+
+<i>DescendantDescendant { false } OR Descendant { false } OR Root { true } </i>
+
+As you can see from the pseudo-scientific code above, the framework needs to evaluate all boolean expressions until it finds the first one being <code>true</code>. In our case, its the precondition in the root class of the inheritance path. Violation tracking keeps track of assertion errors up the inheritance path for being able to rethrow those errors if the overall boolean expression evaluates to <code>false</code>. 
+
+<h3>Fully Built with Gradle</h3>
+
+GContracts 1.2 has a completely new project structure - it comes with a multi-module Gradle build consisting of the following sub-modules:
+
+<ul>
+<li><b>gcontracts-core</b>: the core framework</li>
+<li><b>gcontracts-doc</b>: contains the <code>ContractGroovyDoc</code> Ant task</li>
+<li><b>gcontracts-grails</b>: contains a special <code>Lifecycle</code> implementation for applying GContracts in Grails projects</li>
+</ul>
+
+Expect more sub-modules to be added during the next release cycles.
+
+<h3>Bugtracking @ Lighthouse</h3>
+
+Bugtracking has been moved from Github to Lighthouse [<a href="http://gcontracts.lighthouseapp.com/projects/71511-gcontracts-core/overview">1</a>]. If you experience any issues, feel free to post a ticket.
+
+<h3>Feedback @ Twitter</h3>
+
+GContracts now has a its own twitter account [<a href="http://twitter.com/gcontracts">5</a>] - feel free to follow or post any questions/comments there.
+
+<h3>Summary</h3>
+
+ There are multiple ways to get GContracts into your Groovy-based project:
+
+<ul>
+<li>Download GContracts binaries at Github [<a href="https://github.com/andresteingress/gcontracts/downloads">2</a>]
+<li>Add a Maven Dependency to your <code>build.gradle</code>, <code>pom.xml</code>, <code>BuildConfig.grovvy</code> or whatever [<a href="http://repo1.maven.org/maven2/org/gcontracts/gcontracts-core/">3</a>]
+<li>Copy And Paste the Gihub wiki examples [<a href="https://github.com/andresteingress/gcontracts/wiki">4</a>] 
+</ul>
+
+Have fun enriching your domain model with contracts!
+
+Andre
+
+<br><br><div>[0] <a href="https://github.com/andresteingress/gcontracts">GContracts Github Project</a></div>
+<div>[1] <a href="http://gcontracts.lighthouseapp.com/projects/71511-gcontracts-core/overview">Lighthouse Bug Tracker</a></div>
+<div>[2] <a href="https://github.com/andresteingress/gcontracts/downloads">GContracts Binary Downloads</a></div>
+<div>[3] <a href="http://repo1.maven.org/maven2/org/gcontracts/gcontracts-core/">GContracts Central Maven Repository</a></div>
+<div>[4] <a href="https://github.com/andresteingress/gcontracts/wiki">GContracts Wiki</a></div>
+<div>[5] <a href="http://twitter.com/gcontracts">Follow GContracts at Twitter</a></div>

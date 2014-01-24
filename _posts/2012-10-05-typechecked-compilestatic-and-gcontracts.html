@@ -1,0 +1,105 @@
+---
+layout: post
+title: '@TypeChecked, @CompileStatic and GContracts'
+categories:
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _wp_old_slug: ''
+  _syntaxhighlighter_encoded: '1'
+  _edit_lock: '1350027120'
+  _edit_last: '2'
+---
+As of version 1.2.9 GContracts [<a href="https://github.com/andresteingress/gcontracts">0</a>] - a Design by Contract library - supports Groovy's <tt>@CompileStatic</tt> and <tt>@TypedChecked</tt> annotations. With Groovy 2.0, <tt>@CompileStatic</tt> can be used to execute type checks during compile time, bypass the Groovy meta object protocol and force a Java-like byte-code generation.<tt>@TypeChecked</tt> can be used to apply type checks only. 
+
+The newest version of GContracts enriches certain elements of the abstract syntax tree with type information during compile time.
+
+<h3>Static Typing and Contracts == <3 </h3>
+
+Before 2.0, applying <tt>@Invariant</tt>, <tt>@Requires</tt> and <tt>@Ensures</tt> on code written in a dynamic language has been half-baked. As class definitions could be changed during runtime, there was always the chance of a contract being implicitly violated although the contract did successfully evaluate beforehand.
+
+With <tt>@TypeChecked</tt> and <tt>@CompileStatic</tt> we can ensure type safety and therefore strengthen the applicability of GContracts. Check out the following statically typed <tt>Stack</tt> example:
+
+{% highlight groovy %} 
+
+@Grab(group='org.gcontracts', module='gcontracts-core', version='[1.2.9,)')
+import org.gcontracts.annotations.*
+
+@groovy.transform.CompileStatic
+@Invariant({ elements != null })
+class Stack<T> {
+
+    List<T> elements
+
+    @Ensures({ is_empty() })
+    def Stack()  {
+        elements = []
+    }
+
+    @Requires({ preElements?.size() > 0 })
+    @Ensures({ !is_empty() })
+    def Stack(List<T> preElements)  {
+        elements = preElements
+    }
+
+    boolean is_empty()  {
+        elements.isEmpty()
+    }
+
+    @Requires({ !is_empty() })
+    T last_item()  {
+        elements.get(count() - 1)
+    }
+
+    def count() {
+        elements.size()
+    }
+
+    @Ensures({ result == true ? count() > 0 : count() >= 0  })
+    boolean has(T item)  {
+        elements.contains(item)
+    }
+
+    @Ensures({ last_item() == item })
+    def push(T item)  {
+       elements.add(item)
+    }
+
+    @Requires({ !is_empty() })
+    @Ensures({ last_item() == item })
+    def replace(T item)  {
+        remove()
+        elements.add(item)
+    }
+
+    @Requires({ !is_empty() })
+    @Ensures({ result != null })
+    T remove()  {
+        elements.remove(count() - 1)
+    }
+
+    String toString() { elements.toString() }
+}
+
+def stack = new Stack<Integer>()
+
+ {% endhighlight %}
+
+The above example shows a statically compiled <tt>Stack</tt> class, that is fully annotated with pre-/postconditions and a class invariant.  
+
+<h3>Cool stuff - how can I get it?</h3>
+
+If you want to play with GContracts and Groovy 2.0 and its static typing features, download Groovy [<a href="http://groovy.codehaus.org/Download">1</a>], fire up the groovyConsole, copy and paste the above example and you are ready to go with GContracts and Groovy. 
+
+Alternatively, you can use GContracts in your Gradle project by adding <tt>compile 'org.gcontracts:gcontracts-core:1.2.9'</tt> to your <tt>build.gradle</tt>.
+ 
+For an introduction to static typing and compilation in Groovy 2.0 I would suggest watching this Gr8Conf presentation by Cédric Champeau [<a href=""http://gr8conf.eu/Presentations/Static-typing-in-Groovy-2.0">2</a>].
+
+Happy hacking!
+
+<br><br><div>[0] <a href="https://github.com/andresteingress/gcontracts">GContracts - Design by Contract for Groovy</a></div>
+<div>[1] <a href="http://groovy.codehaus.org/Download">Groovy Download Page</a> </div>
+<div>[2] <a href="http://gr8conf.eu/Presentations/Static-typing-in-Groovy-2.0">Cédric Champeau: Static Type Checking and Compilation in Groovy 2.0</a></div>

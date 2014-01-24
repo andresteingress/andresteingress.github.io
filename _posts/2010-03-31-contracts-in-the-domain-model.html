@@ -1,0 +1,119 @@
+---
+layout: post
+title: Contracts in the Domain Model
+categories:
+- basic
+- gcontracts
+- grails
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_post_hidden: '0'
+  _flattr_btn_disabled: ''
+  _edit_lock: '1295332001'
+  _edit_last: '2'
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1293720017";}";
+  _syntaxhighlighter_encoded: '1'
+  _flattr_post_category: text
+  _flattr_post_language: en_GB
+---
+This blog-post gives a brief introduction to <em>contract-oriented programming</em> aka <em>design by contract</em> in general and in relation to Groovy with <a href="http://github.com/andresteingress/gcontracts">gcontracts</a> assertions.
+
+<strong>The Problem</strong>
+
+With each Grails application generation of test-cases is simply part of the game. Whenever you create a domain-class the corresponding unit-test is generated directly. With the test-first approach of Test-Driven Development (TDD) each iteration in the development process starts with the task of writing tests specifying the intended behavior of the targeted components.
+
+E.g. use-case: a customer in the coffee-house might order several cups of coffee
+
+{% highlight groovy %} 
+class Customer {
+    def Order createOrder() { ... }
+}
+ {% endhighlight %}
+
+{% highlight groovy %} 
+class Order {
+    def void addItem(Item someItem)  { ... }
+}
+ {% endhighlight %}
+
+When executing the test-first approach we would start with writing a unit-test for class Item, going on to class Order and finally writing one for class Customer.
+
+e.g. ItemTests
+
+{% highlight groovy %} 
+class ItemTests  {
+    @Test
+    def void testCreateItem()  {
+        def item = new Item(COFFEE_TYPE.Cappuccino, 1) // (type, amount)
+        assertEquals COFFEE_TYPE.Cappuccino, item.coffee_type()
+        assertEquals 1, item.amount()
+    }
+}
+ {% endhighlight %}
+
+As you might have already noticed it is pretty hard to find tests that maximize the covering of business requirements. Most of the time, unit-tests are written in the first iteration, in subsequent iterations that tests are simply rewritten to "get green". Your mileage may vary, but the main problem with test-cases are that each single test-case only tests a small fraction of the input domain, that is, the cartesian product of the current function:
+
+e.g. the constructor call to <code>new Item(COFFEE_TYPE.Cappuccino, 1)</code> is nothing more than a function call that generates a new item object, with (COFFEE_TYPE, NUMBER) as parameters. Set theory would map that function to the following expression:
+
+<img class="aligncenter size-medium wp-image-73" title="Mapping a Constructor Function" src="http://andresteingress.files.wordpress.com/2010/03/constructor-function.png?w=300" alt="Mapping a Constructor Function" width="300" height="50" /> Meaning that the overall set of parameter tuples is mapped by the cartesian product between all COFFEE_TYPE and all INTEGER values, the result is a single tuple out of all cartesian product tuples. Just imagine the cartesian product as a set that contains all possible combinations of this function's parameter values. The unit-test tests exactly one single pair out of the cartesian product:
+
+<img class="aligncenter size-full wp-image-74" title="several pairs in the cartesian product" src="http://andresteingress.files.wordpress.com/2010/03/set-of-pairs.png" alt="several pairs in the cartesian product" width="247" height="135" />In this simple example it gets pretty obvious that even if tests have a high code coverage, they hardly never can satisfy testing a large portion of the problem domain.
+
+That is where contracts come into play.
+
+<strong>An Introduction to Contract-Oriented Programming</strong>
+
+Contracts are the clue between the specification and the implementation of a certain software artifact, in object-oriented speak: classes. Formally, contracts are based on so-called Hoare rules which provide a formal system towards logical rules of reasoning on the correctness of computer programs [<a href="http://sunnyday.mit.edu/16.355/Hoare-CACM-69.pdf">0</a>]. The main feature of this formal system is the so-called Hoare triple:
+
+<img class="aligncenter size-medium wp-image-75" title="Hoare Triple" src="http://andresteingress.files.wordpress.com/2010/03/hoare-triple.png?w=300" alt="Hoare Triple" width="300" height="50" />where P and Q are assertions and C represents a set of commands. A concrete Hoare triple states that before execution of C, the <em>precondition</em> P must be true, after the execution the <em>postcondition</em><em> </em>Q must hold. Pre- and postconditions represent so-called<em> assertion types</em>.
+
+In a <a href="http://github.com/andresteingress/gcontracts">gcontracts</a> enabled Groovy program you might use pre- and postconditions by using either <code>@Requires</code> or <code>@Ensures</code>:
+
+{% highlight groovy %} 
+class Item {
+    private CoffeeType coffee_type
+    ...
+
+    @Requires({ type != null &amp;amp;&amp;amp; amount > 0 })
+    def Item(final CoffeeType type, final Integer amount)  { ... }
+
+    @Ensures({ old -> old.coffee_type != coffee_type })
+    def void change_coffee_type_to(final CoffeeType type)  { ... }
+}
+ {% endhighlight %}
+
+As you can see pre- and postconditions are applied on constructors or methods only. In addition, there is the need to express assertions which must be preserved by all methods and every instance of that class; these assertion types are called <em>class-invariants</em>:
+
+{% highlight groovy %} 
+@Invariant({ coffee_type != null &amp;amp;&amp;amp; amount > 0 })
+class Item { ... }
+ {% endhighlight %}
+
+A class-invariant must be preserved after every constructor call and before/after each method call. When executing a method with a precondition P, a postcondition Q and a class-invariant C, before a method call the assertion expression P AND C and after a method call expression Q AND C must be true.
+
+When inheritance comes into play we'll have to have a separate look at all assertion types:
+<ul>
+	<li><em>Class-Invariants</em>Whenever a class B with an invariant <em>B(iv)</em> extends a class A with an invariant <em>A(iv)</em>, <em>B(iv)</em> indeed is logically combined with <em>A(iv)</em>, meaning that every class-invariant check in B is actually represented by the boolean expression <em>B(iv) AND A(iv).</em>
+<img class="aligncenter size-full wp-image-42" title="class-invariant inheritance" src="http://andresteingress.files.wordpress.com/2010/03/inheritance.png" alt="class-invariant inheritance illustration" width="236" height="230" /></li>
+	<li><em>Preconditions</em>Whenever a method B with a precondition <em>B(pre)</em> overrides a method A with a precondition <em>A(pre)</em>, <em>B(pre)</em> is logically combined with a boolean OR, resulting in <em>B(pre) OR A(pre) <span style="font-style:normal;">assertions for all method calls of B. The precondition is said to be weakened for redeclared methods.</span></em><em> </em></li>
+	<li><em>Postconditions </em><em><span style="font-style:normal;">Whenever a method B with a postcondition </span>B(post)<span style="font-style:normal;"> overrides a method A with a postcondition </span>A(post)<span style="font-style:normal;">, </span>B(post)<span style="font-style:normal;"> is logically combined with a boolean AND, resulting in </span>B(post) AND A(post) </em>for all method calls of B. The postcondition is said to be strengthened for redeclared methods.</li>
+</ul>
+<strong>Conclusion</strong>
+
+Pre-, postconditions and class-invariants provide a great way of minimizing the parameter domain and ease testing of your domain model. Having instrumented your code with these assertions, you can concentrate on e.g. extreme boundaries of parameter values or obscure business cases when writing your tests. Indeed, a carefully instrumented domain-model has further advantages:
+<ul>
+	<li><em>Tests are built-in</em> - especially in complex object-oriented domain models, it is getting hard to (mentally) debug code and getting an impression of dependencies between components and side-effects between them. Contracts help to ensure that at least objects stay in a defined state that satisfies the intention of its supplier.<div style="height:10px;"></div></li>
+	<li><em>Implicit programmer assumptions are made explicit</em> in the class's or method's contract - that's just one step closer to get the domain documented in the source code.<div style="height:10px;"></div></li>
+	<li><em>Contracts enforce correctness </em>- identifying contracts in the domain model is not an easy task and it is surely not done in a single iteration (of course), but once programmers get on it they really have to think about the specification and its mapping in the domain model and its contracts, thus enforcing correctness of understanding how business requirements shall be implemented.<div style="height:10px;"></div></li>
+	<li><em>Contracts allow for rapid changing of business requirements </em>- rapid changing of business requirements is one of the most annoying facts for programmers. Given a set of components and related unit tests, a single business requirement might cause rewriting of all components and their corresponding unit-tests. Especially rewriting the unit-tests might introduce or slip through other bugs since, as we've seen, unit-tests usually cover only a small portion of the problem domain. When applying contract-oriented programming, you might change class-invariants etc. but at least those assertions already cover a large portion of the problem domain.<div style="height:10px;"></div></li>
+	<li><em>Contracts enforce readability </em>- when writing code, a programmer always has a mind-map of all objects and assumptions on objects and their particular state in mind. Those assumptions are said to be implicit, since they are not explicitly stated in source-code. From my experience, when having to switch between multiple projects it gets even worse and the source-code owner itself forgets about its implicit assumptions - which is the best starting point of introducing new bugs.<div style="height:10px;"></div></li>
+	<li><em>Contracts enforce stability</em> - dynamic languages are great for rapid application development, but when it comes to maintainability dynamic code can be hard to read and - due to its dynamic nature and other properties - pretty fragile. Changes in components lead to potential side-effects which might not be spotted by test-suites. Assertions provide a way to determine programming bugs at run-time (mostly in test and not in production-environments).<div style="height:10px;"></div></li>
+</ul>
+To be clear: if your task is to write e.g. a simple CRUD Grails application, you wont be dealing with this stuff. But, if you are dealing with complex domain models and throw moving business requirements in (what project lives without them?), you might give contract-oriented programming a try.
+
+<br><br><div>[0] <a href="http://sunnyday.mit.edu/16.355/Hoare-CACM-69.pdf">An axiomatic basis for computer programming, C. A. R. Hoare</a></div>
+<div>[1] <a href="http://github.com/andresteingress/gcontracts">GContracts - Contract-Oriented Programming with Groovy, Github</a></div>

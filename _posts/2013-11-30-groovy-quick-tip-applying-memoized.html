@@ -1,0 +1,42 @@
+---
+layout: post
+title: 'Groovy Quick-Tip: Applying @Memoized'
+categories:
+- groovy
+tags: []
+status: draft
+type: post
+published: false
+meta:
+  _edit_last: '2'
+  _edit_lock: '1385800849'
+  _syntaxhighlighter_encoded: '1'
+---
+{% highlight groovy %} 
+class MemoizedExample {
+ 
+     @Memoized
+     int sum(int n1, int n2) {
+         println "$n1 + $n2 = ${n1 + n2}" 
+         n1 + n2
+     }
+ }
+ {% endhighlight %}
+
+{% highlight groovy %} 
+class MemoizedExample {
+ 
+     private final Closure memoizedSum = { int n1, int n2 ->
+         private$method$memoizedSum(n1,n2)
+     }.memoize()
+ 
+     int sum(int n1, int n2) {
+         memoizedSum(n1, n2)
+     }
+
+     private private$method$mzmoizeSum(int n1, int n2) {
+         println "$n1 + $n2 = ${n1 + n2}"
+         n1 + n2
+     }
+ }
+ {% endhighlight %} 

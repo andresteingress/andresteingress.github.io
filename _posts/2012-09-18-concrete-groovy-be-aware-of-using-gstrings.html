@@ -1,0 +1,107 @@
+---
+layout: post
+title: 'Concrete Groovy: Be aware of using GStrings'
+categories:
+- groovy
+tags: []
+status: draft
+type: post
+published: false
+meta:
+  _syntaxhighlighter_encoded: '1'
+  _edit_last: '2'
+  _edit_lock: '1347977013'
+---
+This article is the first one of a series that has been inspired by Joch Bloch's "Concrete Java" classic. As a matter of fact, most of the knowledge certainly hasn't been uncovered by me but has been told every now and than in various places.
+
+<h3>Strings the Groovy way</h3>
+
+According to the Javadoc of <tt>groovy.lang.GString</tt> [<a href="http://groovy.codehaus.org/api/groovy/lang/GString.html">0</a>], a Groovy String  
+
+<blockquote>represents a String which contains embedded values such as "hello there ${user} how are you?" which can be evaluated lazily.</blockquote>
+
+What immidiately stands out is the fact that strings "can be" evaluated lazily. That is where our journey to GString land starts.
+
+<h3>GStrings and variable scopes</h3>
+
+Whenever you use a <tt>String</tt> in Groovy it could either by of type <tt>java.lang.String</tt> or <tt>groovy.lang.GString</tt>. The choice depends whether the String expression holds a placeholder value or not at compile time. As <tt>java.lang.String</tt> has been implemented as a final class, Groovy is forced to convert between GString and String objects, depending whether the appropriate type information has been specified or not.
+
+For example, consider the following code snippet:
+
+{% highlight groovy %} 
+class Logger {
+    boolean infoEnabled = false
+
+    void info(def msg) { 
+        if (!infoEnabled) return 
+
+        println msg
+    }
+}
+def logger = new Logger(infoEnabled: true)
+logger.info ("method executed in ${System.currentTimeMillis() - start} ms")
+
+output:
+method executed in ...
+ {% endhighlight %}
+
+one could assume that the GString object is lazy evaluated only if the logger is activated on info level. But as we see if we add a simple println statement to the GString, this is not the case: 
+
+{% highlight groovy %} 
+def logger = new Logger(infoEnabled: false)
+logger.info ("method executed in ${println 'test'; System.currentTimeMillis() - start} ms")
+
+output:
+test
+ {% endhighlight %}
+
+This directly leads to the first rule of thumb when dealing with GStrings:
+
+<strong>GString place holder values are always given to the internal GString constructor</strong>
+
+The compiler translates the code to something equivalent like this:
+
+{% highlight groovy %} 
+logger.info (new GString("method executed in ", { println 'test'; System.currentTimeMillis() - start} as String, " ms")
+ {% endhighlight %}
+
+This shows even better that place holder values are directly converted to their string representation in the place where the GString definition occurs. As class <tt>GString</tt> does not descend from <tt>java.lang.String</tt>, <tt>GString</tt> instances are converted by Groovy's <tt>as</tt> method whenever type <tt>String</tt> is actually needed for a variable:
+
+{% highlight groovy %} 
+def gs = "this is my ${'GString'}"
+assert gs instanceof GString
+
+String s = gs
+assert s instanceof String
+ {% endhighlight %}
+
+If we have a look at the <tt>GString#toString()</tt> implementation, we will see that a <tt>StringWriter</tt> is used to build a new <tt>String</tt> instance each time <tt>GString#toString()</tt> is invoked.
+
+{% highlight java %} 
+public String toString() {
+    StringWriter buffer = new StringWriter();
+    try {
+        writeTo(buffer);
+    }
+    catch (IOException e) {
+        throw new StringWriterIOException(e);
+    }
+    return buffer.toString();
+}
+ {% endhighlight %}
+
+If we digg further deeper into <tt>StringWriter#toString()</tt> implementation we see that the String instance is created by an internal character array. 
+
+{% highlight java %} 
+public synchronized String toString() {
+    return new String(value, 0, count);
+}
+ {% endhighlight %}
+
+<tt>GString#toString()</tt> is not only called when converting a <tt>GString</tt> to a <tt>String</tt>, but also internally when computing the GString length, retrieving a subsequence
+
+"test" == "Test" executes GString#toString().equals()
+
+
+
+<br><br><div>[0] <a href="http://groovy.codehaus.org/api/groovy/lang/GString.html">groovy.lang.GString JavaDoc</a></div>

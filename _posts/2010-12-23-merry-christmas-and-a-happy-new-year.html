@@ -1,0 +1,55 @@
+---
+layout: post
+title: Merry Christmas and a Happy New Year!
+categories:
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_post_language: en_GB
+  _flattr_post_category: text
+  _flattr_post_hidden: '0'
+  _flattr_btn_disabled: ''
+  _syntaxhighlighter_encoded: '1'
+  _edit_last: '1'
+  _edit_lock: '1294151910'
+  jabber_published: '1293102509'
+  email_notification: '1293102510'
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1294140610";}";
+---
+I wanted to thank all readers for their feedback and support. Writing this blog makes a lot of fun and I am looking forward to future posts.
+
+I wanted to make you a Groovy christmas present - just throw it in your preferred Groovy console and execute it :-)
+
+[source language="groovy"]
+String.metaClass.or = { other -&gt;
+    return &quot;$delegate$other&quot;
+}
+
+String.metaClass.div = { other -&gt;
+    return &quot; &quot; * other + delegate
+}
+
+[(','/11 | 'i' | '!' * 6 | ';' | ',' ),
+('.'/6  | ',' | ';' | 'i' | '!' * 5 | '\'' | '`' | ',' | 'u' * 2 | ',' | 'o' | '$' * 2 | 'bo.'),
+('!' * 7 / 4 | '\'.e' | '$' * 14 | '.' ),
+('!' * 7 / 3 | ' ' | '$' * 17 | 'P' ),
+('!' * 7 / 3 | ',`' | '$' * 8 | 'P&quot;&quot;`,,`&quot;' ),
+('i' / 2 | '!' * 8 | ',' |'$' * 4 | '&quot;,oed' | '$' * 6 ),
+('!' * 9 / 1 | '\'P&quot;.,e' | '$' * 8 | '&quot;\'?' ),
+('`' / 1 | '!' * 8 | ' z$\'J' | '$' * 5 | '\'.,$bd$b,'),
+('`' / 2 | '!' * 6 | 'f;$\'d' | '$' * 13 | 'P\',c,.' ),
+('!' * 6 / 3 | ' $B,&quot;?' | '$' * 5 | 'P\',uggg' | '$' * 5 | 'P&quot;' ),
+('!' * 6 / 3 | '.' | '$' * 4 | 'be.&quot;\'zd' | '$' * 3 | 'P&quot;.,uooe' | '$' * 2 | 'r' ),
+('`' / 3 | '!' * 3 | '\',' | '$' * 9 | 'c,&quot;&quot;,ud' | '$' * 9 | 'L' ),
+('!' * 2 / 4 | ' ' | '$' * 29),
+('!\'j' / 4 | '$' * 29 ),
+('d@@,?' / 2 | '$' * 28 | 'P'),
+('?@@f:' / 2 | '$' * 27 | '\''),
+('&quot;&quot;' / 3 | ' `' | '$' * 26 | 'F'),
+('`3' / 7 | '$' * 22 | 'F' ),
+('`&quot;' / 10 | '$' * 4 | 'P?' | '$' * 7 | '&quot;`' ),
+('`&quot;&quot;' / 19), &quot;Merry Christmas and a Happy New Year!&quot;].each { println it }
+[/source] 

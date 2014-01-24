@@ -1,0 +1,237 @@
+---
+layout: post
+title: Anonymous Inner Classes in Android
+categories:
+- android
+- basic
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _wp_old_slug: ''
+  _syntaxhighlighter_encoded: '1'
+  _edit_lock: '1318756460'
+  _edit_last: '2'
+  _flattr_btn_disabled: ''
+  _flattr_post_hidden: '0'
+  _flattr_post_category: text
+  _flattr_post_language: en_GB
+---
+This one is about anonymous classes and there implications for Android applications.
+
+Let's have a look at the following code:
+
+{% highlight java %} 
+public class OuterClass {
+
+    private String someInstanceVariable = "";
+
+    private InnerClass anonymous = new InnerClass() {
+
+        @Override public void someMethod() {
+            someInstanceVariable = "Test";
+        }
+    };
+}
+ {% endhighlight %}
+
+As <tt>InnerClass</tt> is a so-called "anonymous private inner class", it might reference instance variables from the enclosing class. What does this mean at runtime?
+
+In Java, whenever an <tt>OuterClass</tt> instance is created, the <tt>InnerClass</tt> instance will automatically have a reference to its client, the object of type <tt>OuterClass</tt>, implying that there is no inner class instance without an outer class instance. Let's take a look at the compilation result of the above example.
+
+The compilation results in two class files: <tt>OuterClass.class</tt> and <tt>OuterClass$1.class</tt>, whereas the latter holds the implementation of the anonymous inner class. After throwing both classes into a Java disassembler, we end up with the following source code:
+
+{% highlight java %} 
+package org.example;
+
+public class OuterClass
+{
+
+    public OuterClass()
+    {
+    	super();
+    	someInstanceVariable = "";
+    	anonymous = new OuterClass$1(this);
+    }
+
+    static String access$002(OuterClass x0, String x1)
+    {
+    	this.someInstanceVariable = x1;
+    	return this.someInstanceVariable;
+    }
+
+    private String someInstanceVariable;
+    private InnerClass anonymous;
+
+    class OuterClass$1 extends InnerClass
+    {
+
+        OuterClass$1(OuterClass outerClass)
+        {
+        	this$0 = outerClass;
+        	super();
+        }
+
+        public void someMethod()
+        {
+        	OuterClass.access$002(this$0, "Test");        
+        }
+
+        final OuterClass this$0;
+    }
+}
+ {% endhighlight %}
+
+The most important part in the Java disassembled code is the <tt>OuterClass$1</tt> class holding a reference to the actual <tt>OuterClass</tt> instance. This is an important issue to understand when working with the Android framework, as it makes heavy use of anonymous classes and non-static inner classes.
+
+<h3>Anonymous Inner Classes &amp; Android</h3>
+
+Let us now consider the following <tt>Activity</tt> implementation:
+
+{% highlight java %} 
+public class SomeActivity extends Activity
+{
+
+    private View.OnClickListener onClickListener = new View.OnClickListener() {
+
+        public void onClick(View view) {
+            new SomeLongRunningTask().execute();
+        }
+    };
+
+    private Button someButton;
+
+    private class SomeLongRunningTask extends AsyncTask<Void, Void, Boolean> {
+
+        @Override
+        protected Boolean doInBackground(Void... voids) {
+
+            try {
+                Thread.sleep(30000);
+            } catch (InterruptedException e) {}
+
+            return true;
+        }
+
+        @Override
+        protected void onPostExecute(Boolean aBoolean) {
+            someButton.setText(aBoolean ? "Successful" : "Fail");
+        }
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState)
+    {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.main);
+
+        someButton = (Button) findViewById(R.id.someButton);
+        someButton.setOnClickListener(onClickListener);
+    }
+}
+ {% endhighlight %}
+
+As you can see the reference to the current <tt>Activity</tt> is implicitly embedded two times: 
+
+<ul>
+<li>it is embedded in the anonymous <tt>OnClickListener</tt> implementation class and 
+<li>it is embedded in the  <tt>SomeLongRunningTask</tt> class
+</ul>
+
+In effect, this means these are <i>two potential places</i> in this very simple activity where e.g. an orientation change might indirectly cause the listener or asynchronous task to leak the current <tt>Activity</tt> instance. 
+
+Let us consider the classic case of device rotation. The <tt>OnClickListener</tt> is not the problem in this case as the activity object is completely destroyed and a new activity object instance is created by the framework (although it could be a problem depending on the code that is executed by the listener).
+
+But it gets interesting with the <tt>SomeLongRunningTask</tt> class. As long as a task instance is running in the background, it keeps a reference to the activity object that created it, no matter if Android already re-created a new <tt>Activity</tt> instance or not.
+
+<h3>How to remove implicit references?</h3>
+
+One way to solve this problem would be to use a <i>static inner class</i>. One property of these classes is their missing reference to the outer class. As we will still need the reference to the <tt>Button</tt> to update its text message, we have to introduce a <tt>Handler</tt>. The <tt>Handler</tt> is the one that should be responsible for ui updates, as it has a reference to the current UI thread.
+
+{% highlight java %} 
+public class SomeActivity extends Activity
+{
+    private static final int UPDATE_BUTTON_TEXT = 1;
+    private static final SomeActivity me = null;
+
+    private static Handler handler = new Handler() { 
+        public void handleMessage(Message msg)  {
+          if (me == null) return;
+
+          switch (msg.what)  {
+            case UPDATE_BUTTON_TEXT:
+              Button btn = (Button) me.findViewById(R.id.someButton);
+              btn.setText((String) msg.obj);
+          }
+        }
+    };
+
+    private View.OnClickListener onClickListener = new View.OnClickListener() {
+       public void onClick(View view) {
+            new SomeLongRunningTask().execute();
+        }
+    };
+
+    private static class SomeLongRunningTask extends AsyncTask<Void, Void, Boolean> {
+
+        private Handler handler;
+    
+        public SomeLongRunningTask(Handler handler)  {
+            this.handler = handler;
+        }
+
+        @Override
+        protected Boolean doInBackground(Void... voids) {
+
+            try {
+                Thread.sleep(30000); // replace with some background logic
+            } catch (InterruptedException e) {}
+
+            return true;
+        }
+
+        @Override
+        protected void onPostExecute(Boolean aBoolean) {
+            Message msg = handler.obtainMessage(UPDATE_BUTTON_TEXT);
+            msg.obj = "success"
+            handler.sendMessage(msg);
+        }
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState)
+    {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.main);
+
+        final Button someButton = (Button) findViewById(R.id.someButton);
+        someButton.setOnClickListener(onClickListener);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+ 
+        me = this;
+    }
+ 
+    @Override
+    protected void onStop() {
+        me = null;
+ 
+        super.onStop();
+    }
+}
+ {% endhighlight %}
+
+<h3>Conclusion</h3>
+
+After all, this is a very stripped down example. But when thinking of elaborate applications, programmers should know about anonymous classes and their (invisible) side-effects.
+
+<br><br><div>[0] <a href="http://android-developers.blogspot.com/2009/01/avoiding-memory-leaks.html">Romain Guy - Avoiding Memory Leaks - http://android-developers.blogspot.com/2009/01/avoiding-memory-leaks.html</a></div>
+<div>[1] <a href="http://ttlnews.blogspot.com/2010/01/attacking-memory-problems-on-android.html">Attacking Memory Problems on Android - http://ttlnews.blogspot.com/2010/01/attacking-memory-problems-on-android.html</a></div>
+
+<a class="FlattrButton" style="display:none;" href="http://blog.andresteingress.com/2011/10/12/anonymous-inner-classes-in-android/"></a>
+<noscript><a href="http://flattr.com/thing/416612/Anonymous-Inner-Classes-in-Android" target="_blank">
+<img src="http://api.flattr.com/button/flattr-badge-large.png" alt="Flattr this" title="Flattr this" border="0" /></a></noscript>

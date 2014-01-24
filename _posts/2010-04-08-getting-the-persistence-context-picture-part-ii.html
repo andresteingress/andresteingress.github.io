@@ -1,0 +1,272 @@
+---
+layout: post
+title: Getting the Persistence Context Picture (Part II)
+categories:
+- basic
+- grails
+- hibernate
+- patterns
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_post_language: en_GB
+  _flattr_post_category: text
+  _flattr_post_hidden: '0'
+  _flattr_btn_disabled: ''
+  _edit_last: '2'
+  _edit_lock: '1323252133'
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1293719756";}";
+  _syntaxhighlighter_encoded: '1'
+---
+<a href="http://andresteingress.wordpress.com/2010/03/23/getting-the-persistence-context-picture-part-i/">The first article of this series</a> [0] took a look at the basic patterns found in todays persistence frameworks. In this article we will have a look at how Hibernate APIs relate to those patterns and how Hibernate is utilized in Grails.
+<h4>A Closer Look at Hibernate's Persistence Context APIs</h4>
+All data creation, modification and altering has to be done in a <em>persistence context</em>. A persistence context is a concrete software element that maintains a list of all object modifications and, in a nutshell, at the end of the persistence context life-time or business transaction synchronizes them with the current database state.
+
+When developing with a modern web framework - as Grails is - it is most likely you don't even have to care about opening a persistence context or closing it, or even know about how this could be done.
+
+But as application complexity raises,  you have to know Hibernate's persistence context APIs and understand how they are integrated within the web application framework of your choice. Let us take a look at the most import APIs and how they correspond to persistence patterns.
+<h4>The Registry Pattern or <code>org.hibernate.SessionFactory</code></h4>
+The <code>SessionFactory</code> class implements the registry pattern. A registry is used by the infrastructure-layer to obtain a reference to the current persistence context, or to create a new one if not found in the current context.
+
+Usually, as noted in SessionFactory's Java documentation, a session-factory refers to a single persistence provider. Most of the time, application need just a single session-factory. Indeed, if an application wanted to work across multiple databases, it would have to maintain multiple <code>SessionFactory</code> instances, one for each database.
+
+Imagine a session-factory to be a configuration hub - it is the place where all configuration settings are read and used for constructing persistence contexts.
+
+In a Grails application, the application's session-factory can be easily obtained by declaring a property of type <code>org.hibernate.SessionFactory</code>:
+
+{% highlight groovy %} 
+
+class SomeService {
+
+    SessionFactory sessionFactory
+
+    void myServiceMethod()  {
+        def session = sessionFactory.getCurrentSession()
+        // ...
+    }
+}
+ {% endhighlight %}
+
+The Grails application's session-factoy is than injected by dependency injection since every Grails service class is a Spring-managed component. Other components include controllers, domain-classes and custom beans (either in <code>beans.groovy</code>, <code>beans.xml</code>, other bean definition XMLs or annotated Groovy/Java classes).
+
+A Grails application's session-factory is set-up by the <code>HibernatePluginSupport</code> class, which is a utility class used by Grails hibernate plugin. When taking a look at the source code you'll find out that the code uses Grails Spring builder DSL to declare a <code>ConfigurableLocalSessionFactoryBean</code>. This type of bean is usually used in Spring applications to create a Hibernate session-factory instance during application bootstrap and to keep track of it during the entire life-time of the application-context.
+
+{% highlight groovy %} 
+//...
+sessionFactory(ConfigurableLocalSessionFactoryBean) {
+    dataSource = dataSource
+    // ...
+    hibernateProperties = hibernateProperties
+    lobHandler = lobHandlerDetector
+}
+//...
+ {% endhighlight %}
+
+Btw, if we would have to create a session-factory within a plain Groovy application, it wouldn't get much harder:
+
+{% highlight groovy %} 
+
+def configuration = new Configuration()
+    .setProperty("hibernate.dialect", "org.hibernate.dialect.MySQLInnoDBDialect")
+    .setProperty("hibernate.connection.datasource", "java:comp/env/jdbc/test")
+    .setProperty("hibernate.order_updates", "true")
+    // ...
+
+def sessionFactory = configuration.buildSessionFactory()
+ {% endhighlight %}
+
+The <code>Configuration</code> class can be used to configure a session-factory programatically, other options would be to use a properties-file or an XML file (named <code>hibernate.properties</code> or <code>hibernate.cfg.xml</code>). If using any of the file-based configurations, take care your configuration file can be loaded by the current class-loader, therefore put it in the class-path's root directory.
+
+Grails configuration of Hibernate's session-factory is pretty much hided from application developers. In order to provide a custom <code>hibernate.cfg.xml</code>, just put it in the <code>grails-app/conf/hibernate</code> folder.
+<h4>The Persistence-Context Pattern or <code>org.hibernate.Session</code></h4>
+The Session builds the heart of Hibernate: it resembles a persistence context. Thus, whenever the application needs to access object-mapping functionality in either form, it needs to work with an instance of type <code>Session</code>.
+
+The <code>Session</code> interface provides a bunch of methods letting the application infrastructure interact with the persistence context:
+
+{% highlight java %} 
+        // ...
+	public Query createQuery(String queryString) throws HibernateException;
+
+	public SQLQuery createSQLQuery(String queryString) throws HibernateException;
+
+	public Query createFilter(Object collection, String queryString) throws HibernateException;
+
+	public Query getNamedQuery(String queryName) throws HibernateException;
+
+	public void clear();
+
+	public Object get(Class clazz, Serializable id) throws HibernateException;
+
+	public void setReadOnly(Object entity, boolean readOnly);
+
+	public void doWork(Work work) throws HibernateException;
+
+	Connection disconnect() throws HibernateException;
+
+	void reconnect() throws HibernateException;
+
+	void reconnect(Connection connection) throws HibernateException;
+        // ...
+ {% endhighlight %}
+
+Whenever e.g. a query is created by one of the querying methods, all objects which are retrieved are automatically linked to the session. For each attached (Hibernate term for "linked") object, the session holds a reference and meta-data about it. Whenever a transient Groovy object is saved, it gets automatically attached to the current session. Notice that this is a unidirectional relationship: the session knows everything whereas the attached object instances don't know anything about being linked to a session.
+<h4>Lazy and Eager Loading</h4>
+In regard to attaching objects to the current session, you need to know the concepts of lazy and eager loading of object relationships.
+
+Whenever a persistent class <code>A</code> references another persistent class <code>B</code>, <code>A</code> is said to have a relationship with <code>B</code>. Object relationships are mapped either with foreign keys or relationship tables in the underlying database schema. As default, Hibernate uses a <em>lazy loading</em> approach: whenever a root object with relations to other objects is loaded, the related objects are not loaded. The other approach would be <em>eager loading</em>, where the object relationship is loaded with the root object.
+
+<a href="http://andresteingress.files.wordpress.com/2010/04/lazy-eager-loading.png"><img class="aligncenter size-full wp-image-176" title="Lazy vs. Eager Loading" src="http://andresteingress.files.wordpress.com/2010/04/lazy-eager-loading.png" alt="Lazy vs. Eager Loading" width="438" height="369" /></a>
+
+Lazy loading does not hurt as long as objects are attached to a persistence context. Although, if the persistence context is closed, there is no way to navigate over a lazy loaded relationship. Whenever application code needs to access lazy relationships this leads to a lazy loading exceptions.
+<h4>Obtaining a Session</h4>
+Per default, a session instance can be obtained using a session-factory instance:
+
+{% highlight groovy %} 
+
+def session = sessionFactory.openSession()
+def tx = session.beginTransaction()
+
+// ... work with the session
+
+tx.commit()
+session.close()
+
+ {% endhighlight %}
+
+As it is the case with the code sample above, most of the time application code is working in a transactional context, that is, the current method is executed within a single transaction. Therefore, it is a common idiom to open a transaction with the beginning of a session, although this is not enforced by Hibernate's API. If we would not use transaction boundaries, we could just omit the method call to <code>beginTransaction</code>:
+
+{% highlight groovy %} 
+
+def session = sessionFactory.openSession()
+
+// ... work with the session
+
+session.close()
+
+ {% endhighlight %}
+
+You need to be careful in this scenario. If Hibernate obtains a JDBC connection, it automatically turns autocommit mode off by setting <code>jdbcConnection.setAutoCommit(false)</code>. Indeed, this is the JDBC way to tell the database to start a new transaction. However, how the database driver reacts on pending transactions is not specified, an application runs into undefined behavior.
+<h4>General Session-Handling in Grails</h4>
+As manual session handling can get tricky, web frameworks like Grails hide most of these problems. The Grails' Object Relational Mapping (GORM) layer is a thin layer above Hibernate 3. Grails uses this layer to enrich domain classes with a lot of DAO like functionality. E.g. to each domain class so-called dynamic finders are added, which most of the time completely replace the need for data access objects (DAOs). Handling of Hibernate sessions is mainly hidden by GORM which internally uses Spring's Hibernate integration and Hibernate.
+
+Whenever executing a GORM query Grails internally creates a <code>HibernateTemplate</code>. A <code>HibernateTemplate</code> is a neat way to get defined access to a Hibernate session. It completely hides getting the session-factory and retrieving a session. Clients only need to implement callback methods, which are than called on execution of that template. Let's take a look how such templates are used when executing e.g. a dynamic finder method like <code>findBy</code>.
+
+{% highlight groovy %} 
+
+class SomeController {
+  def myAction()  {
+    def User user = User.findByLogin(params.id)
+    // ...
+  }
+}
+
+ {% endhighlight %}
+
+When invoking the static <code>findBy</code> dynamic finder method, the following code is executed:
+
+{% highlight java %} 
+
+// ...
+return super.getHibernateTemplate().execute( new HibernateCallback() {
+    public Object doInHibernate(Session session) throws HibernateException, SQLException {
+        Criteria crit = getCriteria(session, additionalCriteria, clazz);
+	// ... do some criteria building
+
+        final List list = crit.list();
+        if(!list.isEmpty()) {
+            return GrailsHibernateUtil.unwrapIfProxy(list.get(0));
+        }
+        return null;
+     }
+});
+ {% endhighlight %}
+
+As can be seen, Grails internally does nothing more than creating a Spring <code>HibernateTemplate</code> and in its <code>doInHibernate</code> callback, creates a plain Hibernate <code>Criteria</code> object which is used to specify object queries. Spring hides the code of finding the current session and setting properties according to the current program context, GORM adds this functionality and does all Groovy meta-programming stuff (adding static methods etc. to the domain's meta class).
+
+The same is true for saving domain objects using GORM's <code>save</code> method:
+
+{% highlight java %} 
+protected Object performSave(final Object target, final boolean flush) {
+        HibernateTemplate ht = getHibernateTemplate();
+        return ht.execute(new HibernateCallback() {
+            public Object doInHibernate(Session session) throws HibernateException, SQLException {
+                session.saveOrUpdate(target);
+                if(flush) {
+                    // ...
+                    getHibernateTemplate().flush();
+                    // ...
+                }
+                return target;
+            }
+        });
+}
+ {% endhighlight %}
+<h4>Session Flushing</h4>
+Since a session spans a <em>business transaction</em> (remember, not the same as a technical transaction) it might be left open by the infrastructure-layer over several user interaction requests. The application needs to ensure that a session is closed and its state synchronized with the database at some time, which is called <em>flushing</em> a session.
+
+As we have already seen in the Grails source code above, flushing is mainly handled by the web framework, but programmers should know the point-cuts where it actually happens:
+<ul>
+	<li>whenever a  <code>Transaction</code> gets committed</li>
+	<li>before a query is executed</li>
+	<li>if <code>session.flush()</code> is called explicitly</li>
+</ul>
+Be aware that flushing is a costly operation in a persistence context, as Hibernate needs to synchronize the current object model in memory with the database. Programmers could change the default behavior described above by setting an alternate flush mode on the current session:
+
+{% highlight groovy %} 
+def session = sessionFactory.openSession()
+session.setFlushMode(FlushMode.NEVER)
+ {% endhighlight %}
+
+<code>FlushMode.NEVER</code> in this case means that session flushing is deactivated, only explicit calls to <code>session.flush()</code> triggers it.
+
+In Grails, session flushing is done after each controller call, due to Spring's <code>OpenSessionInView</code> interception mechanism. In order to access lazy-loaded properties in GSP pages, the session is not closed completely after a controller's method call but after response rendering is done. Therefore, it sets session flushing mode to <code>FlushMode.NEVER</code> after a controller method call to avoid DB modifications caused by GSP page code.
+
+Another place where sessions get flushed, is at the end of each service method call (as long as the service is marked as being <code>transactional</code> or is annotated with <code>@Transactional</code>):
+
+{% highlight groovy %} 
+class SomeService {
+    static transactional = true
+
+    def someMethod()  {
+       // ... transactional code
+    }
+}
+ {% endhighlight %}
+
+{% highlight groovy %} 
+class SomeService {
+
+    @Transactional
+    def someMethod()  {
+       // ... transactional code
+    }
+}
+ {% endhighlight %}
+
+When doing integration tests on Grails classes, you need to remind these point-cuts where sessions get flushed. To make things even more complicated, there is one additional thing that is different in integration tests: each integration test method runs in its own transaction, which at the end is rollbacked by Grails testing classes. E.g. if testing a controller's save method, chances are you can't find an SQL INSERT or UPDATE statement in database logs. This is the intended behavior, but it causes confusion if bugs dealing with persistence issues need to be reproduced by test-cases.
+
+If it is about transactions in integration tests, there is a way to deactivate transaction boundaries there:
+
+{% highlight groovy %} 
+class SomeTest extends GrailsTestCase {
+    static transactional = false
+
+    @Test
+    def testWithoutTransactionBoundary()  {
+       // ... transactional code
+    }
+}
+ {% endhighlight %}
+<h4>Summary</h4>
+In this article we took a look at how Grails and GORM handles Hibernate's basic APIs: the <code>SessionFactory</code> and the <code>Session</code>. The next article in this series will deal with more advanced features: GORM in batch-jobs and conversational state management.
+
+<br><br><div>[0] <a href="http://andresteingress.wordpress.com/2010/03/23/getting-the-persistence-context-picture-part-i/">Getting the Persistence Context Picture (Part I)</a></div>
+<div>[1] <a href="http://www.hibernate.org/">Hibernate Project</a></div>
+<div>[2] <a href="http://static.springsource.org/spring/docs/3.0.x/spring-framework-reference/html/orm.html#orm-hibernate">Spring Hibernate Integration</a></div>
+<div>[3] <a href="http://grails.org/doc/latest/guide/5.%20Object%20Relational%20Mapping%20(GORM).html">Grails GORM Documentation</a></div>
+
+<a class="FlattrButton" style="display:none;" href="http://blog.andresteingress.com/2010/04/08/getting-the-persistence-context-picture-part-ii/"></a>
+<noscript><a href="http://flattr.com/thing/448278/Getting-the-Persistence-Context-Part-II" target="_blank">
+<img src="http://api.flattr.com/button/flattr-badge-large.png" alt="Flattr this" title="Flattr this" border="0" /></a></noscript>

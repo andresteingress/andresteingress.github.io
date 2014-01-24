@@ -1,0 +1,89 @@
+---
+layout: post
+title: 'Groovy 2.2: Groovysh ''doc'' command'
+categories:
+- groovy
+tags: []
+status: draft
+type: post
+published: false
+meta:
+  _edit_last: '2'
+  _edit_lock: '1368772371'
+  _syntaxhighlighter_encoded: '1'
+  _oembed_3f7bd4064c724ebd128c97e4252f67ef: 'unknown'
+---
+Groovy 2.2 [0] comes with some neat additions to Groovysh [<a href="http://groovy.codehaus.org/Groovy+Shell">1</a>]. Groovysh is a command-line application that allows to evaluate expressions, define classes and run simple experiments. 
+
+The groovysh program comes with every Groovy installation. After extracting/installing the Groovy distribution, it can be found in the "bin/" folder.
+
+Once you start groovysh a command prompt comes up.
+
+{% highlight groovy %} 
+➜  ~  groovysh
+Groovy Shell (2.2.0, JVM: 1.7.0_21)
+Type 'help' or '\h' for help.
+-------------------------------------------------------------------------------
+groovy:000> 
+ {% endhighlight %}
+
+<h3>The doc command</h3>
+
+In Groovy 2.2 groovysh gained some additional features and refinements. One of them is the so-called <tt>doc</tt> command, representing the newest addition to the groovysh set of commands. 
+
+{% highlight groovy %} 
+Available commands:
+  help      (\h ) Display this help message
+  ?         (\? ) Alias to: help
+  exit      (\x ) Exit the shell
+  quit      (\q ) Alias to: exit
+  import    (\i ) Import a class into the namespace
+  display   (\d ) Display the current buffer
+  clear     (\c ) Clear the buffer and reset the prompt counter.
+  show      (\S ) Show variables, classes or imports
+  inspect   (\n ) Inspect a variable or the last result with the GUI object browser
+  purge     (\p ) Purge variables, classes, imports or preferences
+  edit      (\e ) Edit the current buffer
+  load      (\l ) Load a file or URL into the buffer
+  .         (\. ) Alias to: load
+  save      (\s ) Save the current buffer to a file
+  record    (\r ) Record the current session to a file
+  history   (\H ) Display, manage and recall edit-line history
+  alias     (\a ) Create an alias
+  set       (\= ) Set (or list) preferences
+  register  (\rc) Registers a new command with the shell
+  doc       (\D ) Opens a browser window displaying the doc for the argument
+ {% endhighlight %}
+
+The <tt>doc</tt> command is a simple but useful one. It allows for looking up the JavaDoc/GroovyDoc documentation of the specified class. 
+
+{% highlight groovy %} 
+groovy:000> help doc
+
+usage: doc [<class>]
+
+Opens a browser window displaying the doc for the argument.
+ {% endhighlight %}
+
+As can be seen in the documentation printed above, the doc command can be called with a single <tt>class</tt> argument, specifying the fully-qualified class name. To open the documentation for <tt>groovy.lang.GString</tt>, <tt>doc</tt> just needs to be called with the class name as the only argument.
+
+{% highlight groovy %} 
+groovy:000> doc groovy.lang.GString
+ {% endhighlight %}
+
+The <tt>doc</tt> command implementation primarily uses Java's <tt>java.awt.Desktop</tt> class which provides a <tt>browse</tt> method for opening URLs in the system-specific browser. As this functionality isn't supported on all platforms (e.g. Linux is not supported), one needs to set a <tt>BROWSER</tt> or <tt>GROOVYSH_BROWSER</tt> environment variable to use this feature.
+
+{% highlight groovy %} 
+groovy:000> doc groovy.lang.GString
+http://groovy.codehaus.org/gapi/groovy/lang/GString.html
+Browser could not be opened caused by missing platform support for 'java.awt.Desktop'. Please set a GROOVYSH_BROWSER or BROWSER environment variable referring to the browser binary to solve this issue.
+ {% endhighlight %}
+
+Once the browser is referred to accordingly, <tt>doc</tt> opens the JavaDoc/GroovyDoc URL. 
+
+<h3>Conclusion</h3>
+
+The <tt>doc</tt> command represents the latest addition to the groovysh command set. It allows for opening a JavaDoc/GroovyDoc page to a given full-qualified class name. 
+
+[0] Groovy 2.2 Release Notes
+<div>[1] <a href="http://groovy.codehaus.org/Groovy+Shell">Groovysh</a></div>

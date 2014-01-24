@@ -1,0 +1,190 @@
+---
+layout: post
+title: 'GContracts: Inheritance of Pre- and Postconditions'
+categories:
+- basic
+- gcontracts
+- Intro
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_post_language: en_GB
+  _flattr_post_category: text
+  _flattr_post_hidden: '0'
+  _flattr_btn_disabled: ''
+  _syntaxhighlighter_encoded: '1'
+  _edit_last: '1'
+  _edit_lock: '1295332176'
+  jabber_published: '1276581943'
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1293719793";}";
+  _wp_old_slug: ''
+---
+GContracts 1.1.0 [<a href="http://github.com/andresteingress/gcontracts">0</a>] introduced inheritance for pre- and postconditions and optimized class invariant inheritance. If you want to know more about GContracts take a look at the wiki [<a href="http://wiki.github.com/andresteingress/gcontracts/">1</a>] or at blog-posts tagged with "gcontracts".
+
+<h4>What about postcondition inheritance?</h4>
+
+Postconditions are used to specify what work is guaranteed by the supplier to be done in a specific method, under the condition that the precondition is satisfied. When inheritance comes into play, postconditions of a parent class are inherited by overridden methods of a descendant class.
+
+Imagine a class <tt>Stack</tt> which provides methods for modifying objects kept in LIFO order.
+
+[source language="groovy"]
+import org.gcontracts.annotations.*
+
+@Invariant({ elements != null })
+class Stack {
+
+    private List elements
+
+    @Ensures({ is_empty() })
+    public Stack()  {
+        elements = []
+    }
+
+    @Requires({ preElements?.size() &gt; 0 })
+    @Ensures({ !is_empty() })
+    public Stack(List preElements)  {
+        elements = preElements
+    }
+
+    def boolean is_empty()  {
+        elements.isEmpty()
+    }
+
+    @Requires({ !is_empty() })
+    def last_item()  {
+        elements.last()
+    }
+
+    def count() {
+        elements.size()
+    }
+
+    @Ensures({ result == true ? count() &gt; 0 : count() &gt;= 0  })
+    def boolean has(def item)  {
+        elements.contains(item)
+    }
+
+    @Ensures({ last_item() == item })
+    def put(def item)  {
+       elements.push(item)
+    }
+
+    @Requires({ !is_empty() })
+    @Ensures({ last_item() == item })
+    def replace(def item)  {
+        remove()
+        elements.push(item)
+    }
+
+    @Requires({ !is_empty() })
+    @Ensures({ result != null })
+    def remove()  {
+        elements.pop()
+    }
+
+    def String toString() { elements.toString() }
+}
+[/source]
+
+As you can see in the code sample <tt>@Requires</tt> and <tt>@Ensures</tt> is used to specify pre- and postconditions in certain methods. Whenever an object of type <tt>Stack</tt> is used at runtime those assertions will be checked due to hidden code segments injected by GContracts at compile-time (under the assertion that Java's assert mechanism is activated via the command line argument <tt>-ea</tt>).
+
+Let's assume we need an extended <tt>Stack</tt> that provides us with changed method behavior. For example, we want to add a <tt>put</tt> method that adds inlining support for lists:
+
+[source language="groovy"]
+def stack = new Stack()
+stack.push(['value1', 'value2', 'value3'])
+[/source]
+
+In order to implement this feature we need to override the <tt>put</tt> method found in the parent class.
+
+[source language="groovy"]
+class GroovyStack extends Stack  {
+
+    @Override
+    def put(def item)  {
+        if (item instanceof List) item.each { super.put(it) }
+        else super.put(item)
+
+        return item
+    }
+}
+[/source]
+
+If we create an instance of <tt>GroovyStack</tt> and call <tt>put</tt> with a list as actual parameter, the following assertion violation appears:
+
+[source language="groovy"]
+[inherited postcondition] in method &lt;put(item:java.lang.Object)&gt; violated. Expression: (this.last_item() == item). Values: item = [1, 2, 3, 4]
+[/source]
+
+A look at the original postcondition shows that this is in fact the case, since our new <tt>put</tt> method in the descendant flattens the given parameter and for each item in the given list executes the <tt>put</tt> method once.
+
+Maybe a new postcondition in the descendant will solve this issue:
+
+[source language="groovy"]
+class GroovyStack extends Stack  {
+
+    @Override
+    @Ensures({ item instanceof List ? item.last() == last_item() : item == last_item() })
+    def put(def item)  {
+        if (item instanceof List) item.each { super.put(it) }
+        else super.put(item)
+
+        return item
+    }
+}
+[/source]
+
+Execution again shows the following assertion:
+
+[source language="groovy"]
+[inherited postcondition] in method &lt;put(item:java.lang.Object)&gt; violated. Expression: (this.last_item() == item). Values: item = [1, 2, 3, 4]
+[/source]
+
+This leads us to the most important point with rewritten postconditions in descendant classes: you can't override them.
+
+A postcondition in a descendant class is always joined with the postcondition of the super class, the postcondition of the parent class is said to be <em>strengthened</em>. That means, an overridden method has to implement the postcondition of its parent classes <em>AND</em> its self-defined postcondition.
+
+<img src="http://andresteingress.files.wordpress.com/2010/06/postcondition-inheritance.png" alt="" title="postcondition inheritance" width="407" height="255" class="aligncenter size-full wp-image-583" />
+
+This might seem awkward at first, but consider the following code:
+
+[source language="groovy"]
+Stack stack = StackFactory.getInstance()
+
+stack.put([1,2,3,4])
+[/source]
+
+The thing is, if we override the <tt>put</tt> method in the <tt>GroovyStack</tt> class the semantic of the code above would change with the type of <tt>Stack</tt> used at runtime: a <tt>Stack</tt> instance would push the complete list on the stack, a <tt>GroovyStack</tt> instance would push the single list items.
+
+Indeed, changing the behavior of an overridden method does not conform to the assertion that inheritance always resembles an <i>is-a</i> relationship. If a <tt>GroovyStack</tt> should be a <tt>Stack</tt>, than it has to implement all postconditions of its parent class in overridden methods to conform to the contracts that were specified in the parent and on which clients already might rely on.
+
+Due to inheritance of the parent postcondition we stumbled upon this circumstance and it made us think about how the <tt>Stack</tt> data-structure could already be used by its clients.
+
+<h4>What about precondition inheritance?</h4>
+
+Preconditions are used to specify certain conditions which must be fulfilled by a client so that a method call on an object succeeds. So far, GContracts did not support inheritance of preconditions, meaning that whenever a parent class defined a precondition on a method which has been overridden in a descendant, the precondition in the descendant had to be newly defined.
+
+In contrast with postconditions, preconditions <em>weaken</em> the parent's preconditions. Whenever a parent class defines a precondition on a method, an overridden method might define additional preconditions which <em>might</em> be fulfilled by a client, but don't have to be.
+
+<img src="http://andresteingress.files.wordpress.com/2010/06/precondition-inheritance.png" alt="" title="precondition inheritance" width="407" height="258" class="aligncenter size-full wp-image-584" />
+
+If we would like to rewrite the <tt>replace</tt> method in <tt>GroovyClass</tt> we could specify an additional precondition:
+
+[source language="groovy"]
+   @Requires({ item != null })
+    @Ensures({ item() == item })
+    def replace(def item)  {
+        super.replace(item)
+    }
+[/source]
+
+But that additional precondition weakens the original one, meaning that a call like <tt>remove(null)</tt> on <tt>GroovyStack</tt> would still suffice the precondition. In contrast, a <tt>put</tt> method call on an empty stack would still raise an <tt>AssertionError</tt>.
+
+<h4>Conclusion</h4>
+
+Inheritance of pre- and postconditions complements object-oriented mechanisms like polymorphism, dynamic binding and overriding methods and channels those concepts to correct uses. GContracts for Groovy finally supports precondition and postcondition with 1.1.0. Therefore it supports the main principles found in Design by Contract(tm) and allows to apply the full power of contracts to domain models in Groovy/Grails projects.
+
+<br><br><div>[0] <a href="http://github.com/andresteingress/gcontracts">GContracts Project - http://github.com/andresteingress/gcontracts</a></div>
+<div>[1] <a href="http://wiki.github.com/andresteingress/gcontracts/">GContracts Wiki - http://wiki.github.com/andresteingress/gcontracts/</a></div>

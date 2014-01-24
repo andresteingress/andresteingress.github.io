@@ -1,0 +1,153 @@
+---
+layout: post
+title: The Micro Framework Approach
+categories:
+- grails
+- groovy
+- hibernate
+- patterns
+- spring framework
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_post_language: en_GB
+  _flattr_post_category: text
+  _flattr_post_hidden: '0'
+  _flattr_btn_disabled: ''
+  _syntaxhighlighter_encoded: '1'
+  _edit_last: '1'
+  _edit_lock: '1294151949'
+  jabber_published: '1291359978'
+  _wp_old_slug: ''
+  email_notification: '1291359980'
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1294058013";}";
+---
+The demand for Grails and Groovy is clearly raising these days - at least here in Austria and Germany. Although most of my workshops have their individual adaptions (depending on the previous knowledge and programming language experience of participants) there are parts which can more or less be found unmodified in every workshop: Groovy essentials/advanced topics and what I call <em>micro framework</em> examples. This article is about the idea behind micro framework examples and why I find them that useful as workshop examples.
+
+<h4>What is a Micro Framework Example?</h4>
+
+I strongly believe that true understanding on patterns behind frameworks like Hibernate and Spring can't easily be treat in a bunch of slides. Explaining patterns is one thing but to actually see how those are applied is another one. One approach I've found to be really useful in workshops is the use of micro framework examples. A micro framework example implements the core functionality behind a specific framework - reduced to the very fundamentals. One advantage to implement a micro framework example together with participants is to force triggering a thinking process of what functionality is needed and how it can be implemented. Another side-effect is that it allows to slightly introduce the original frameworks ubiquitous language simply by using the same class and method names.
+
+Let me give you an example. The most threatening topic for many of my clients is to understand Hibernate and its persistence patterns. One approach to create a better understanding would be to implement a micro Hibernate framework example. This can be done in a simple Groovy script <em>MicroHibernate.groovy</em> which defines two classes and a simple test case. The first class implements the <em>registry</em> pattern and is called <code>SessionFactory</code>:
+
+
+{% highlight groovy %} 
+class SessionFactory {
+
+    private def storage
+
+    def SessionFactory(def storage)  {
+        this.storage = storage
+    }
+
+    def newStorageConnection()  {
+        return storage
+    }
+}
+ {% endhighlight %}
+
+The <code>SessionFactory</code> acts as the main access point to get a reference to some storage connection. In the micro framework example this will simply be a <code>Map</code>. Dealing with SQL or even a real database would uselessly complicate the example and we want to concentrate on the core essentials. Let's go on to the next class which implements the <em>persistence context</em> pattern:
+
+{% highlight groovy %} 
+
+class Session {
+
+    static Log log = LogFactory.getLog(Session)
+
+    private def sessionFactory
+
+    def Session(def sessionFactory) { this.sessionFactory = sessionFactory }
+
+    def snapshots = [:] // a Map(Domain-Class, Map(Identifier, Properties))
+    def identityMap = [:] // a Map(Domain-Class, Map(Identifier, ObjectRef))
+    def modifiedPersistentObjects = [:] // a Map(Domain-Class, List(Identifier))
+
+    def propertyChanged(def obj)  {
+        if (!modifiedPersistentObjects[obj.getClass()]) modifiedPersistentObjects[obj.getClass()] = []
+
+        modifiedPersistentObjects[obj.getClass()] << obj.id
+
+        log.info "propertyChanged of object: ${obj} with id ${obj.id}"
+    }
+
+    def load(Class<?> domainClassType, Long identifier)  {
+
+        if (identityMap[domainClassType] &amp;&amp; identityMap[domainClassType][identifier])  {
+            return identityMap[domainClassType][identifier]
+        }
+
+        def conn = sessionFactory.newStorageConnection()
+        def loadedObj = conn[domainClassType][identifier]
+        if (!loadedObj) throw new Exception("Object of type ${domainClassType} with id ${identifier} could not be found!")
+
+        if (!snapshots[domainClassType]) snapshots[domainClassType] = [:]
+        if (!identityMap[domainClassType]) identityMap[domainClassType] = [:]
+
+
+        def properties = loadedObj.getProperty("props")
+        snapshots[domainClassType][identifier] = properties.inject([:], { m, property -> m[property] = loadedObj[property]; m })
+
+        log.info "create snapshot of ${domainClassType} id ${identifier} with properties ${snapshots[domainClassType][identifier]}"
+
+        identityMap[domainClassType][identifier] = loadedObj
+
+        loadedObj.metaClass.getId = { -> identifier }
+        loadedObj.metaClass.setProperty = { String name, Object arg ->
+            def metaProperty = delegate.metaClass.getMetaProperty(name)
+
+            if (metaProperty)  {
+                owner.propertyChanged(loadedObj)
+
+                metaProperty.setProperty(delegate, arg)
+            }
+        }
+
+        return loadedObj
+    }
+}
+
+ {% endhighlight %}
+
+A <code>Session</code> object can be used to retrieve already persistent objects and to persist so-called transient objects. I like to start by implementing the <code>load</code> method which loads a persistent object from the storage connection of the current session factory. Of course, this is not an example for Groovy beginners but with a little knowledge of MOP and with some programming guidance it should not be a big thing to understand what is going on. At the end let's define some test case which shows how both classes are actually used:
+
+{% highlight groovy %} 
+def storage = [:]
+
+class Person {
+    String name
+
+    String toString() { name }
+
+    static props = ['name']
+}
+
+storage[Person] = [:]
+storage[Person][1 as Long] = new Person(name: 'Max Mustermann')
+storage[Person][2 as Long] = new Person(name: 'Erika Mustermann')
+
+def sessionFactory = new SessionFactory(storage)
+def session = sessionFactory.newSession()
+
+def person = session.load(Person, 1)
+ {% endhighlight %}
+
+Interestingly, even without considering SQL, DB connection handling, threading issues etc. participants already get a feeling of several Hibernate gotchas beginners otherwise often struggle with:
+
+<ul>
+<li>the first level cache
+<li>the need for proxies or MOP modifications
+<li>Hibernate's use of object snapshots
+<li>the IdentityMap pattern
+<li>repeatable read transaction isolation level
+<li>etc.
+</ul>
+
+It is amazing how much can be explained by implementing some framework's core functionality in about 5 minutes. The <code>Session</code> functionality gets than extended by <code>flush</code>, <code>discard</code> and <code>save</code>/<code>delete</code> functionality. If programmers have been through the process of implementing such a micro Hibernate example they often get a basic and fundamental understanding of how an orm framework could work and what the main challenging problems are. By keeping the class and method names in sync with the concrete Hibernate implementations participants learn the framework's basic domain language.
+
+<h4>GSamples - A Repository for Sharing Workshop Examples</h4>
+
+The example mentioned above is available in a public github repository what I called <em>GSamples</em> [<a href="https://github.com/andresteingress/gsamples">0</a>], a collection of Groovy and Grails workshop examples. At the time of publishing this article it contains two micro framework examples, the other one is a simple dependency injection container. In addition, GSamples holds Groovy scripts dealing with <em>Groovy Essentials</em> and another one dealing with advanced Groovy topics like the <em>Meta-Object Protocol</em> and <em>Closures</em>. Feel free to extend, distribute or use it!
+
+<br><br><div>[0] <a href="https://github.com/andresteingress/gsamples">GSamples - https://github.com/andresteingress/gsamples</a></div>

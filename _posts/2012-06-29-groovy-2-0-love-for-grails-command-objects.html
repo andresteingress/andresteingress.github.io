@@ -1,0 +1,93 @@
+---
+layout: post
+title: 'Groovy 2.0: Love for Grails Command Objects'
+categories:
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _wp_old_slug: ''
+  _syntaxhighlighter_encoded: '1'
+  _edit_last: '2'
+  _edit_lock: '1340957974'
+---
+Grails supports command object binding [<a href="http://grails.org/doc/latest/guide/theWebLayer.html#commandObjects">0</a>]. Request parameters are bound to properties of a given command class. From this context, a special-case is the use of lazy list properties. 
+
+A lazy list grows whenever an index greater than its size is requested. Apache Commons provides a <tt>LazyList</tt> decorator implementation [<a href="http://commons.apache.org/collections/apidocs/org/apache/commons/collections/list/LazyList.html">1</a>].
+
+{% highlight groovy %} 
+@Grab('commons-collections:commons-collections:3.2.1')
+import org.apache.commons.collections.Factory
+import org.apache.commons.collections.list.LazyList
+def lazy = LazyList.decorate([], { 1 } as Factory)
+assert lazy.get(4) == 1
+assert lazy.get(1) == 1
+assert lazy == [null, 1, null, null, 1]
+ {% endhighlight %}
+
+The <tt>decorate</tt> method returns a <tt>java.util.List</tt> descendant overwriting <tt>List#get(index)</tt>. Whenever <tt>get(index)</tt> is called with an index greater than size, the list grows to the specified index and the factory creates a default value for this index. The gaps between the old and the new index will be filled with <tt>null</tt>.
+
+<tt>LazyList</tt> can be used in Grails command classes for dynamic lists.
+
+{% highlight groovy %} 
+class MyCommand {
+    def dynamicProperty = LazyList.decorate([], { 1 } as Factory)
+}
+ {% endhighlight %}
+
+Whenever <tt>dynamicProperty[index]</tt> is accessed the list is grown to the specified index if needed and the provided factory creates a default value ("1" in the code listing above).
+
+<h3>Doin' it the Groovy way</h3>
+
+Groovy 2.0 comes with a new GDK method emulating Commons LazyList behavior: <tt>List.withDefault</tt>. Whenever a list is created by calling <tt>withDefault</tt> it returns a lazy list with exactly the same properties as described above:
+
+{% highlight groovy %} 
+
+def l = [].withDefault { 42 }
+l[3] == 42 // the index has not been available
+
+assert l == [null, null, null, 42]
+ {% endhighlight %}
+
+As shown in the code listing, the gap is filled with <tt>null</tt> placeholders. There is another property of lazy lists that is worth noting at this point. Any subsequent calls to <tt>get(index)</tt> never return <tt>null</tt>, as <tt>null</tt> is only used as <em>placeholder</em> object. Thus, when calling <tt>get(index)</tt> referencing a slot with a placeholder, the default value will be returned. Or turning it around: this variant of lazy list never returns <tt>null</tt> when <tt>get(index)</tt> is called.
+
+{% highlight groovy %} 
+// ...
+assert l == [null, null, null, 42]
+
+assert l[0] == 42
+assert l[1] == 42
+assert l[2] == 42
+ {% endhighlight %}
+
+<h3>Lazy and Eager Lists</h3>
+
+So far only half the truth has been told. Internally, <tt>withDefault</tt> redirects to <tt>withLazyDefault</tt>, as there is another lazy list variant available: <tt>withEagerDefault</tt>. 
+
+This method can be used to create an <em>eager</em> instead of a <em>lazy</em> list. Again, eager lists grow as indices greater than the actual size are accessed, but it does fill gaps with default values instead of <tt>null</tt> placeholders. As a consequence, eager lists might hold <tt>null</tt> values as valid list elements too.
+
+{% highlight groovy %} 
+def l = [].withEager { 42 }
+
+assert l[3] == 42
+assert l == [42, 42, 42, 42]
+
+l = [null].withEager { 42 }
+
+assert l[0] == null 
+ {% endhighlight %}
+
+<h3>Conclusion</h3>
+
+{% highlight groovy %} 
+class MyCommand {
+    def dynamicProperty = [].withDefault { 1 }
+}
+ {% endhighlight %}
+
+As this feature comes with Groovy 1.8.7 and 2.0, it will be available with one of the next Grails versions. Once bundled, commands objects can be defined without using Apache Commons, in a truly Groovy way :-)
+
+<br><br><div>[0] <a href="http://grails.org/doc/latest/guide/theWebLayer.html#commandObjects">Grails Documentation - Command Objects</a></div>
+<div>[1] <a href="http://commons.apache.org/collections/apidocs/org/apache/commons/collections/list/LazyList.html">Apache Commons LazyList</a></div>

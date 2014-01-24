@@ -1,0 +1,354 @@
+---
+layout: post
+title: Getting the Persistence Context Picture (Part III)
+categories:
+- basic
+- grails
+- hibernate
+- patterns
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _oembed_021942e43991761791c72e69b19f9c4b: 'unknown'
+  _syntaxhighlighter_encoded: '1'
+  _edit_lock: '1323252213'
+  _edit_last: '2'
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1293719923";}";
+  _flattr_btn_disabled: ''
+  _flattr_post_hidden: '0'
+  _flattr_post_category: text
+  _flattr_post_language: en_GB
+---
+Part 3 of this series deals with more advanced topics, requiring knowledge about persistence patterns and Hibernate APIs.
+
+<ul>
+<li>[<a href="http://andresteingress.wordpress.com/2010/03/23/getting-the-persistence-context-picture-part-i/">0</a>] Getting the Persistence Context Picture (Part I)</li>
+<li>[<a href="http://andresteingress.wordpress.com/2010/04/08/getting-the-persistence-context-picture-part-ii/">1</a>] Getting the Persistence Context Picture (Part II)</li>
+</ul>
+
+<h4>Conversational State Management</h4>
+
+One advanced use case when using persistence frameworks is realization of <i>conversations</i>.
+
+A conversation spans multiple user interactions and, most of the time, realizes a well-defined process. Best way to think of a conversation is to think of some kind of wizard, e.g. a newsletter registration wizard.
+
+<img src="http://andresteingress.files.wordpress.com/2010/04/conversation1.png" alt="A Newsletter Registration Conversation" title="A Newsletter Registration Conversation" width="338" height="428" class="aligncenter size-full wp-image-362" />
+
+A newsletter registration wizard typically spans multiple user interactions, whereas each interaction needs user input and further validation to move on:
+
+<ol>
+   <li>a user needs to provide basic data, e.g. firstname, lastname, birthdate, etc.</li>
+   <li>a user needs to register for several newsletter categories</li>
+   <li>a user gets a summary and needs to confirm that information</li>
+</ol>
+
+Each user interaction is part of the overall <i>newsletter registration process</i>. Technically speaking, whenever the user aborts the process at some time, or an unrecoverable error occurs, this must have no consequence on the underlying persistent data structures. E.g. if a user registered for a newsletter (step 2) and stops its newsletter registration per closing the browser window and HTTP session runs out of time, the registration and the newly created newsletter user needs to be rolled back.
+
+A first naive approach to realize conversations is to use a single database transaction. Modern applications hardly use that approach because its error-prone and not justifiable in terms of performance considerations. In order to really get a grasp of the problems we would face, let us take a look at some basics on database transactions.
+
+<h4>A Small Intro to Database Transactions</h4>
+
+Whenever a database transaction gets started, all data modification is tracked by the database. For example, in case of MySQL (InnoDB) databases, pages (think of a special data structure) are modified in a buffer pool and modifications are tracked in a redo log which is hold in synchronization with the disk. Whenever a transaction is committed the dirty pages are flushed out to the filesystem, otherwise if the transaction is rolled back, the dirty pages are removed from the pool and the changes are redone.
+
+It depends on the current <i>transaction level</i> if the current transaction has access to changes done by transactions executed in parallel (more details on MySQL transactions can be found at [<a href="http://dev.mysql.com/doc/refman/5.1/en/innodb-transaction-model.html">2</a>]). MySQL's default transaction level is "repeatable read": all reads within the same transaction return the same results - even if another transaction might have changed data in the meantime. InnoDB (a transactional MySQL database engine, integrated in MySQL server) achieves this behavior by creating <i>snapshots</i> when the first query is created.
+
+Other isolation levels (confirming to SQL-92 standard) are: "read uncommitted" > "read committed" > "repeatable read" > "serializable". The order represents the magnitude of locking which is necessary to realize the respective transaction level.
+
+<h4>A Naive Approach</h4>
+
+<img src="http://andresteingress.files.wordpress.com/2010/04/db-transaction.png" alt="Single DB Transaction" title="Single DB Transaction" width="394" height="418" class="aligncenter size-full wp-image-349" />
+
+Back to conversational state management: as mentioned above, a naive approach would be to use a single database transaction for a single conversation. This approach apparently has many problems:
+
+<ul>
+<li>if data is modified and DML statements generated, usually locks are created, avoiding other transactions to change it.</li>
+<li>databases are designed to keep transactions as short as possible, a transaction is seen as atomic unit and not a long living session, long-running transactions are typically discarded by the database management system.</li>
+<li>especially in web applications, it is hard for an application to determine conversation aborts - when the user closes its browser window in the middle of a transaction, or kills the browser process, there is hardly a change for the application to detect that circumstance.</li>
+<li>a transaction is typically linked to a database connection. the number of database transactions is typically limited to the application.</li>
+</ul>
+
+As you can see, spanning a conversation with a database transaction is not an option. But a pattern already known from the previous articles comes to rescue: the persistence context.
+
+<h4>Extended Persistence Context Pattern</h4>
+
+As we've already seen in the second part of this series [<a href="http://andresteingress.wordpress.com/2010/04/08/getting-the-persistence-context-picture-part-ii">1</a>] Grails uses a so-called <i>Session-per-Request</i> pattern.
+
+<img src="http://andresteingress.files.wordpress.com/2010/04/session-per-request.png" alt="Session per Request Pattern" title="Session per Request Pattern" width="408" height="174" class="aligncenter size-full wp-image-353" />
+
+Whenever a controller's method is called, a new Hibernate session spans the method call and, with flush mode turned to manual, the view rendering. When the view rendering is done, the session is closed. Of course, this pattern is not an option when implementing conversations, since changes in a controller's method call are committed on the method's return. One could pass Grails standard behavior using detached objects, but let me tell you: life gets only more complicated when detaching modified objects - especially in advanced domain models.
+
+What we will need to implement a conversation is a mechanism that spans the persistence context over several user requests, that pattern is called: the <i>extended persistence context</i> pattern.
+
+<img src="http://andresteingress.files.wordpress.com/2010/04/extended-persistence-context.png" alt="Extended Persistence Context" title="Extended Persistence Context" width="408" height="185" class="aligncenter size-full wp-image-351" />
+
+An extended persistence context reuses the persistence context for all interactions within the same conversation. In Hibernate speak: we need to find a way to (re)use a single  <code>org.hibernate.Session</code> instance for conversation lifetime.
+
+Fortunately, there is a Grails plugin which serves that purpose perfectly: the web flow plugin.
+
+<h4>Conversational Management with Web Flows</h4>
+
+The Grails web flow plugin is based on Spring Web Flow [<a href="http://www.springsource.org/webflow">3</a>]. Spring Web Flow uses XML configuration data to specify web flows:
+
+{% highlight xml %} 
+<flow xmlns="http://www.springframework.org/schema/webflow"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.springframework.org/schema/webflow
+  http://www.springframework.org/schema/webflow/spring-webflow-2.0.xsd">
+
+  <view-state id="enterBasicUserData">
+    <transition on="submit" to="registerForNewsletters" />
+  </view-state>
+
+  <view-state id="registerForNewsletters">
+    <transition on="submit" to="showSummary" />
+    <!-- ... -->
+  </view-state>
+
+  <view-state id="showSummary">
+    <transition on="save" to="newsletterConfirmed" />
+    <transition on="cancel" to="newsletterCanceled" />
+  </view-state>
+
+  <end-state id="newsletterConfirmed" >
+    <output name="newsletterId" value="newsletter.id"/>
+  </end-state>
+
+  <end-state id="newsletterCanceled" />
+</flow>
+ {% endhighlight %}
+
+Groovy uses its own DSL implemented in <code>org.codehaus.groovy.grails.webflow.engine.builder.FlowBuilder</code>. This approach has the advantage of being tightly integrated into the Grails controller concept:
+
+{% highlight groovy %} 
+// ...
+def newsletterRegistrationFlow = {
+  step1 {
+    on("save")   {
+      def User userInstance = new User(params)
+      flow.userInstance = userInstance
+
+      if (!userInstance.validate()) {
+        log.error "User could not be saved: ${userInstance.errors}"
+
+        return error()
+      }
+    }.to "step2"
+  }
+
+  step2 {
+    on("save")  {
+      def categoryIds = params.list('newsletter.id')*.toLong()
+      // ...
+      def User userInstance = flow.userInstance
+      newsletterService.registerUserForNewsletterCategories(userInstance, categoryIds)
+      // ...
+   }.to "step3"
+  }
+
+  step3()  {
+     on("save")  {
+        def userInstance = flow.userInstance
+        // ...
+        userInstance.save()
+     }
+  }
+}
+ {% endhighlight %}
+
+In this case, the closure property <code>newsletterRegistrationFlow</code> is placed in a dedicated controller class and is automatically recognized by the web flow plugin. The plugin is responsible for instantiating a Grails web flow builder object which needs a closure as one of its input parameters.
+
+Leaving the DSL aside, best thing about web flows is that it realizes the extended persistence context aka <i>flow managed persistence context (FMPC)</i>. The <code>HibernateFlowExecutionListener</code> is the place where the Hibernate session is created and than reused over multiple user interactions. It implements the <code>FlowExecutionListener</code> interface.
+
+The flow execution listener provides callbacks for various states in the lifecycle of a conversation. Grails <code>HibernateFlowExecutionListener</code> uses these callbacks to implement the extended persistence context pattern. On conversation start, it creates a new Hibernate session:
+
+{% highlight java %} 
+public void sessionStarting(RequestContext context, FlowSession session, MutableAttributeMap input) {
+	// ...
+	Session hibernateSession = createSession(context);
+	session.getScope().put(PERSISTENCE_CONTEXT_ATTRIBUTE, hibernateSession);
+	bind(hibernateSession);
+	// ...
+}
+
+ {% endhighlight %}
+
+Whenever the session is paused, in between separate user requests, it is disconnected from the current database connection:
+
+{% highlight java %} 
+public void paused(RequestContext context) {
+	if (isPersistenceContext(context.getActiveFlow())) {
+		Session session = getHibernateSession(context.getFlowExecutionContext().getActiveSession());
+		unbind(session);
+		session.disconnect();
+	}
+}
+ {% endhighlight %}
+
+Whenever resuming the current web flow, the session is connected with the database connection again. Whenever a web flow has completed its last step, the session is resumed and all changes are flushed in a single transaction:
+
+{% highlight java %} 
+public void sessionEnding(RequestContext context, FlowSession session, String outcome, MutableAttributeMap output) {
+  // ...
+  final Session hibernateSession = getHibernateSession(session);
+  // ...
+  transactionTemplate.execute(new TransactionCallbackWithoutResult() {
+	  protected void doInTransactionWithoutResult(TransactionStatus status) {
+	    sessionFactory.getCurrentSession();
+	    }
+	  });
+  }
+
+  unbind(hibernateSession);
+  hibernateSession.close();
+  // ...
+}
+ {% endhighlight %}
+
+A call to <code>sessionFactory.getCurrentSession()</code> causes the current session to be connected with the transaction and, at the end of the transaction template, committing all changes within that transaction. All changes which have been tracked in-memory so far, are by then synchronized with the database state.
+
+The price to be paid for conversations is higher memory consumption. In order to estimate the included effort, we need to take a closer look at how Hibernate realizes loading and caching of entities. In addition to implementing conversations, memory consumption is especially important in Hibernate based batch jobs.
+
+<h4>Using Hibernate in Batch Jobs</h4>
+
+The most important thing when working with Hibernate is to remember: the persistence context references all persistent entities loaded, but entities don't know anything about it. As long as the persistence context is alive it <i>does not discard references automatically</i>.
+
+This is particularly important in batch jobs. When executing queries with large result sets you have to manually discard the Hibernate session otherwise the program is definitely running out of memory:
+
+{% highlight groovy %} 
+for (def item : newsletters)  {
+  // process item...
+  if (++counter % 50 == 0)  {
+    session.flush()
+    session.clear()
+  }
+  // ...
+}
+ {% endhighlight %}
+
+<code>Session</code> provides a <code>clear</code> method that detaches all persistent objects being tracked by this session instance. Invoked on specific object instances, <code>evict</code> always to remove selected persistent objects from a particular session.
+
+In this context, it might be worth to take a look at Hibernate's <code>StatefulPersistenceContext</code> class. This is the piece of code that actually implements the persistence context pattern. As you can see in the following code snippet, invoking <code>clear</code> removes all references to all tracked objects:
+
+{% highlight java %} 
+public void clear() {
+	// ...
+	entitiesByKey.clear();
+	entitiesByUniqueKey.clear();
+	entityEntries.clear();
+	entitySnapshotsByKey.clear();
+	collectionsByKey.clear();
+	collectionEntries.clear();
+	// ...
+}
+ {% endhighlight %}
+
+Another thing to notice when executing large result sets and keeping persistence contexts in memory is that Hibernate uses <i>state snapshots</i> to recognize modifications on persistent objects (remember how InnoDB realizes repeatable-read transaction isolation;-)).
+
+Whenever a persistent object is loaded, Hibernate creates a snapshot of the current state and keeps that snapshot in internal data-structures:
+
+{% highlight java %} 
+// ..
+EntityEntry entry = getSession().getPersistenceContext().getEntry( instance );
+if ( entry == null ) {
+	throw new AssertionFailure( "possible nonthreadsafe access to session" );
+}
+
+if ( entry.getStatus()==Status.MANAGED || persister.isVersionPropertyGenerated() ) {
+
+TypeFactory.deepCopy(
+		state,
+		persister.getPropertyTypes(),
+		persister.getPropertyCheckability(),
+	        state,
+		session
+);
+// ...
+ {% endhighlight %}
+
+Whenever you don't want Hibernate to create snapshot objects, you have to use readonly queries or objects. Marking a query as "readonly" is as easy as setting its <code>setReadOnly(true)</code> property. In read-only mode, no snapshots are created and modified persistent objects are not marked as dirty.
+
+{% highlight groovy %} 
+Newsletter.withSession {
+        org.hibernate.classic.Session session ->
+
+              def query = session.createQuery("from Newsletter").setReadOnly(true)
+              def newsletters = query.list()
+
+              for (def item : newsletters)  {
+                // ...
+              }
+      }
+ {% endhighlight %}
+
+If your batch accesses the persistence context with read-access only, there is another way to optimize DB access: using a stateless session. <code>SessionFactory</code> has an <code>openStatelessSession</code> method that creates a fully statless session, without caching, modification tracking etc. In Grails, obtaining a stateless session is nothing more than injecting the current sessionFactory bean and calling <code>openStatelessSession</code> on it:
+
+{% highlight groovy %} 
+def Session statelessSession = sessionFactory.openStatelessSession()
+statelessSession.beginTransaction()
+
+// ...
+
+statelessSession.getTransaction().commit()
+statelessSession.close()
+ {% endhighlight %}
+
+In combination with stateless session objects, it is worth mentioning that if you want to modify data there is an interface to do that even when working with stateless sessions:
+
+{% highlight java %} 
+public void doWork(Work work) throws HibernateException;
+ {% endhighlight %}
+
+Where interface <code>Work</code> has a single method declaration:
+
+{% highlight java %} 
+public interface Work {
+	/**
+	 * Execute the discrete work encapsulated by this work instance using the supplied connection.
+	 *
+	 * @param connection The connection on which to perform the work.
+	 * @throws SQLException Thrown during execution of the underlying JDBC interaction.
+	 * @throws HibernateException Generally indicates a wrapped SQLException.
+	 */
+	public void execute(Connection connection) throws SQLException;
+}
+ {% endhighlight %}
+
+As you can see <code>execute</code> gets a reference on the current <code>Connection</code> which, in the case of JDBC connections, can be used to formulate raw SQL queries.
+
+If your batch is processing large chunks of data, paging might be interesting too. Again, this can be done by setting the appropriate properties of Hibernate's <code>Query</code> class.
+
+{% highlight groovy %} 
+// ...
+def Query query = session.createQuery("from Newsletter")
+query.setFirstResult(0)
+query.setMaxResults(50)
+query.setReadOnly(true)
+query.setFlushMode(FlushMode.MANUAL)
+// ...
+ {% endhighlight %}
+
+The code snippet above explicitly sets the flush mode to "manual", since flushing does not make sense in this context (all retrieved objects are readonly).
+
+A similiar API can be found in the <code>Criteria</code> class, being supported by Grails by its own Criteria Builder DSL [<a href="http://www.grails.org/Hibernate+Criteria+Builder">6</a>].
+
+<h4>Conclusion</h4>
+
+As you can see, there are various options to use Hibernate even for batch processing of large data sets. Programmers are not restricted on using predefined methodologies, although understanding the fundamental patterns is a crucial point. Adjusting Hibernate's behavior and generated SQL is a matter of knowing the right extension points.
+
+I hope you had a good time reading that article series. I know, a lot of things have been unsaid but if you are missing something really much or want to gain more insights in a particular topic related to Hibernate, GORM, Grails etc. just drop a comment, i'll try to take notice of it in one of the following blog posts.
+
+
+
+<br><br><div>[0] <a href="http://andresteingress.wordpress.com/2010/03/23/getting-the-persistence-context-picture-part-i/">Getting the Persistence Context Picture (Part I)</a></div>
+<div>[1] <a href="http://andresteingress.wordpress.com/2010/04/08/getting-the-persistence-context-picture-part-ii/">Getting the Persistence Context Picture (Part II)</a></div>
+<div>[2] <a href="http://dev.mysql.com/doc/refman/5.1/en/innodb-transaction-model.html">MySQL InnoDB Transactions</a></div>
+<div>[3] <a href="http://www.springsource.org/webflow">Spring Web Flow Project</a></div>
+<div>[4] <a href="http://www.hibernate.org/">Hibernate - Project Home Page</a></div>
+<div>[5] <a href="http://docs.jboss.org/hibernate/core/3.3/reference/en/html/performance.html">Hibernate Documentation - Chapter: Improving Performance</a></div>
+<div>[6] <a href="http://www.grails.org/Hibernate+Criteria+Builder">Criteria Builder DSL</a></div>
+
+<a class="FlattrButton" style="display:none;" href="http://blog.andresteingress.com/2010/04/20/getting-the-persistence-context-picture-part-iii/"></a>
+<noscript><a href="http://flattr.com/thing/448280/Getting-the-Persistence-Context-Part-III" target="_blank">
+<img src="http://api.flattr.com/button/flattr-badge-large.png" alt="Flattr this" title="Flattr this" border="0" /></a></noscript>

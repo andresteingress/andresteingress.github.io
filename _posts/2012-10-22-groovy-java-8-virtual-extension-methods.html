@@ -1,0 +1,228 @@
+---
+layout: post
+title: Groovy, Java 8 & Virtual Extension Methods
+categories:
+- groovy
+- java
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _edit_last: '2'
+  _edit_lock: '1350891450'
+  _syntaxhighlighter_encoded: '1'
+  _wp_old_slug: ''
+---
+As some of my daily projects deal with Java, I thought it would be a good idea to dig into some language changes Java 8 will provide. Undoubtedly, Java 8 is well known for introducing Lambda expressions as first-class language constructs. There will be a separate blog post concerning Lambda expressions, however there are certain not so well known ingredients Java needs to provide to do a soft migration to enhance already existing classes with lambda support.
+
+<h3>Groovy: DGM</h3>
+
+The Groovy programming language already comes with a rather advanced version of Lambda: Groovy closures. Apart from feeling like Lambda expressions, they additionally provide features to modify method delegation. This functionality has to be provided in order to allow the creation of lean DSLs, it is a key-feature for creating  Groovy-based domain-specific languages.
+
+One advantage of closures being first-class language citizens is their applicability in collection classes. This is by far not the only use-case, but its one that hits core-API developers right in their face: how to modify already existing interfaces and classes without breaking already existing byte-code?
+
+Groovy did the trick by introducing the so-called "Default Groovy Methods". This term refers to a special set of static methods indirectly extending core Java classes such as <tt>java.lang.Object</tt> [<a href="http://groovy.codehaus.org/api/org/codehaus/groovy/runtime/DefaultGroovyMethods.html">0</a>] by the all-known <tt>each</tt> method taking a <tt>groovy.lang.Closure</tt> has the first parameter.
+
+{% highlight groovy %} 
+
+def l = [1,2,3,4]
+
+l.each { println it } // calls DefaultGroovyMethods.each(T, Closure)
+ {% endhighlight %}
+
+Another term for this kind of methods is <i>static extension methods</i> (see C# 4.0 [<a href="http://msdn.microsoft.com/en-us/library/vstudio/bb383977.aspx">1</a>]). 
+
+But what happens when the compiler discovers a DGM method call? Whenever there is a tuple <tt>(instance, methodName, arguments)</tt> it will be executed against the static method <tt>DefaultGroovyMethods#<methodName>(<instance>, <arguments>)</tt>. Groovy supports dynamic method invocation, that is, the actual parameter type is taken into the account on method candidate resolution.
+
+As Groovy comes with a meta-model to implement its dynamic features on top of JVM byte-code, extending core Java classes can be done as part of these mechanisms.
+
+But what about Java?
+
+<h3>Virtual Extension Methods</h3>
+
+To support Lambda in already existing classes without breaking existing binary code, a new language feature has been introduced in Java 8: <i>virtual extension methods</i> [<a href="http://wiki.jvmlangsummit.com/images/a/a1/2011_Goetz_Extension_Slides.pdf">2</a>][<a href="http://wiki.jvmlangsummit.com/images/7/71/2011_Goetz_Extension.pdf">3</a>] [<a href="http://jcp.org/en/jsr/detail?id=335">4</a>].
+
+Let's start with Java interfaces. According to the Java language specification an interface is 
+
+<blockquote>
+[An interface declaration] introduces a new reference type whose members are classes, interfaces, constants, and abstract methods. This type has no implementation, but otherwise unrelated classes can implement it by providing implementations for its abstract methods.
+</blockquote>
+
+However, with virtual extension methods, interface method declarations can specify default method implementations and therefore become so-called <i>extended interfaces</i> with one or more "virtual" extension methods.
+
+The term "virtual" might be confusing for those who are not quite familiar with JVM internals or the Java language specification. It refers to the terminated method invocation method during compilation. Non-private and non-super instance methods are said to be <i>virtually invoked</i>.
+
+Let's have a look at our first virtual extension method:
+
+{% highlight java %} 
+
+interface A {
+    void m() default { System.out.println("Hello, you."); }
+}
+
+class C implements A {}
+
+C c = new C();
+c.m();
+
+ {% endhighlight %}
+
+The syntax for specifying a default implementation is to use the <tt>default</tt> keyword followed by a code block. This choice has been made against inline method declarations to outpoint the difference between method declarations in interfaces and classes. As the interface method provides a default implementation, applying the <tt>abstract</tt> keyword on such methods is not allowed.
+
+As a matter of fact, extended interfaces come closer to "traits" or "mixins" as found in other programming languages or abstract classes in Java. Compared to abstract classes, extended interfaces allow multiple inheritance. 
+
+{% highlight java %} 
+
+interface A {
+    void m1() default { System.out.println("Hello, you."); }
+}
+
+interface B {
+    void m2() default { System.out.println(" ... "); }
+}
+
+class C implements A, B {}
+
+C c = new C();
+c.m1();
+c.m2();
+
+ {% endhighlight %}
+
+Brian Goetz is keen to mention virtual extension methods being more a tool for library developers to offer smooth API evolution keeping binary-compatibility with previous API versions than being used as "traits" or "mixins".
+
+Let's have a look at the classic diamond inheritance problem:
+
+{% highlight java %} 
+
+interface Base {
+    int m();
+}
+
+interface A extends Base {
+    int m() default { return 100; }
+}
+
+interface B extends Base {
+    int m() default { return 200; }
+}
+
+class C implements A, B {}
+
+ {% endhighlight %}
+
+This example does not compile as the compiler detects two candidates for potential method invocation. What if <tt>C</tt> would be an interface, how could we redefine <tt>#m()</tt> to call the virtual extension method of <tt>B#m()</tt>?
+
+{% highlight java %} 
+
+interface Base {
+    int m();
+}
+
+interface A extends Base {
+    int m() default { return 1; }
+}
+
+interface B extends Base {
+    int m() default { return 2; }
+}
+
+interface C extends A, B {
+    int m() default { return B.super.m(); }    
+}
+
+class CImpl implements C {}
+
+ {% endhighlight %}
+
+Super method implementations can be invoked with <tt>&lt;Interface-Name&gt;.super.&lt;Method-Name&gt;</tt>. This doesn't solely work for interfaces, but also concrete and abstract classes.
+
+{% highlight java %} 
+
+interface Base {
+    int m();
+}
+
+interface A extends Base {
+    int m() default { return 1; }
+}
+
+interface B extends Base {
+    int m() default { return 2; }
+}
+
+class C implements A, B {
+    public int m() { return B.super.m(); }    
+}
+
+ {% endhighlight %}
+
+Another way of effecting the method dispatch is to remove the inherited default implementation.
+
+{% highlight java %} 
+
+interface C extends B, A {
+    int m(); // <-- removes A &amp; B's default implementation
+}
+
+class CImpl implements C {
+    public int m() { return 42; }
+}
+
+ {% endhighlight %}
+
+<h3>The Java 8 Collection Class Lambda Extensions</h3>
+
+Now let's see how virtual extension methods look in the wild when being used in 8.0's <tt>Iterable&lt;T&gt;</tt> extended interface:
+
+{% highlight java %} 
+    // ...
+
+    /**
+     * Returns the first element from this Iterable. Depending on the source
+     * type of this Iterable repeated calls may-or-may-not return the same
+     * element.
+     *
+     * @return an element of the collection
+     * @throws NoSuchElementException if this Iterable contains no elements.
+     *
+     */
+    T getFirst() default {
+        return Iterables.getFirst(this);
+    }
+
+    // ...
+
+    /**
+     * Returns {@code true} if any of the elements match the provided predicate.
+     *
+     * @param filter a predicate against which returns {@code true} for
+     * matching elements.
+     * @return {@code true} if any elements returned {@code true} for the
+     * provided predicate.
+     */
+    public boolean anyMatch(Predicate<? super T> filter) default {
+        return Iterables.anyMatch(this, filter);
+    }
+
+    // ...
+
+ {% endhighlight %}
+
+<tt>#getFirst()</tt> returns the first element for this <tt>Iterable</tt>. Although the virtual extension method has been added to a widely used Java interface, already existing binaries won't break when being executed against the new Java runtime environment. Even if a custom <tt>Iterable</tt> implementation would define a custom <tt>getFirst()</tt> method, method resolution would dispatch to the custom method.
+
+<tt>#anyMatch(Predicate)</tt> takes an instance of <tt>java.util.functions.Predicate</tt> as first parameter, whereby this interface itself has a bunch of virtual extension methods and - by the way - already hints why extension methods play an important role when it comes to Lambda expressions (which will be covered in a separate article :-)).
+
+[tested with OpenJDK Runtime Environment (build 1.8.0-ea-lambda-nightly-h1171-20120911-b56-b00)] [<a href="http://jdk8.java.net/lambda">5</a>]
+
+<h3>Conclusion</h3>
+
+"Interfaces do not hold method implementations" is not true anymore, at least with the prospective spread of Java 8. Virtual extension methods resemble a new inheritance mechanism, aligned between abstract classes and pure interfaces and primarily used to migrate already existing core Java classes without breaking binary compatibility with existing code.
+
+<br><br><div>[0] <a href="http://groovy.codehaus.org/api/org/codehaus/groovy/runtime/DefaultGroovyMethods.html">org.codehaus.groovy.runtime.DefaultGroovyMethods</a></div>
+<div>[1] <a href="http://msdn.microsoft.com/en-us/library/vstudio/bb383977.aspx">C# Programming Guide: Static Extension Methods</a></div>
+<div>[2] <a href="http://wiki.jvmlangsummit.com/images/a/a1/2011_Goetz_Extension_Slides.pdf">Brian Goetz: Virtual Extension Methods</a></div>
+<div>[3] <a href="http://wiki.jvmlangsummit.com/images/7/71/2011_Goetz_Extension.pdf">Brian Goetz: Interface Evoluation via Virtual Extension Methods</a></div>
+<div>[4] <a href="http://jcp.org/en/jsr/detail?id=335">JSR 335 - Lambda Expressions for the Java Programming Language</a></div>
+<div>[5] <a href="http://jdk8.java.net/lambda/">JDK 8 Lambda Build</a></div>

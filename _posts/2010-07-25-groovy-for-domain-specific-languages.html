@@ -1,0 +1,105 @@
+---
+layout: post
+title: Groovy for Domain-Specific Languages
+categories:
+- books
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_post_language: en_GB
+  _flattr_post_category: text
+  _flattr_post_hidden: '0'
+  _flattr_btn_disabled: ''
+  _syntaxhighlighter_encoded: '1'
+  _edit_lock: '1295332402'
+  _edit_last: '2'
+  jabber_published: '1280521703'
+  _wp_old_slug: ''
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1293719824";}";
+---
+<h4>Preface</h4>
+
+The book <strong>Groovy for Domain-Specific Languages</strong> [Packt Publishing: <a href="https://www.packtpub.com/groovy-for-domain-specific-languages-dsl/book?utm_source=andresteingress.wordpress.com&amp;utm_medium=bookrev&amp;utm_content=blog&amp;utm_campaign=mdb_004098">3</a>, Amazon.com: <a href="http://www.amazon.com/Groovy-Domain-Specific-Languages-Fergal-Dearle/dp/184719690X/ref=sr_1_1?ie=UTF8&amp;s=books&amp;qid=1280521406&amp;sr=8-1">5</a>] written by Fergal Dearle [<a href="http://www.dearle.com/home/">4</a>] has been published by Packt Publishing in May 2010. As the title mentions it is all about how to implement domain-specific languages aka DSLs based on the Groovy programming language.
+
+With this book the author explicitly targets Java programmers. As can be seen in the separate chapter descriptions below, the book covers Groovy basics, advanced DSL-related language features and script integration issues.
+
+Although not explicitly mentioned, this book covers Groovy up to version 1.6, as this can be deducted from some code samples and screenshots.
+
+<h4>Cover</h4>
+
+<img src="http://andresteingress.files.wordpress.com/2010/07/cover.png" alt="Groovy for Domain-Specific Languages" title="Groovy for Domain-Specific Languages" width="500" height="650" class="aligncenter size-full wp-image-656" />
+
+
+<h4>Chapter Summary</h4>
+
+Chapter 1 - Introduction to DSL and Groovy
+
+The first chapter starts with a general introduction to general purpose programming languages which leads to a brief introduction to specific languages also known as domain-specific languages (DSLs). In addition, the author gives a brief introduction into Groovy and how it relates to the Java platform. A first example of Groovy's XML markup builder gives a practical example on how certain dynamic programming features support building custom DSLs.
+
+Chapter 2 -  Groovy Quick Start
+
+The second chapter covers Groovy from ground up split into two main parts: the first part is the administrative one - it explains where to get Groovy and how to install it on various operating systems and gives an overview about basic commands found in Groovy's binary directory: <code>groovy</code>, <code>groovysh</code>, <code>groovyConsole</code> and <code>groovyc</code>. The second part of this chapter introduces Groovy in about 23 pages and clearly targets programmers with a Java background, not supposed to be an introduction for Groovy newbies without a Java background.
+
+Chapter 3 - Groovy Closures
+
+The third chapter handles Groovy closures in en detail. It starts with code examples of simple closures, explains closure parameters and how separate methods in Groovy's Closure class relate to them and goes over to currying. At the end of this chapter it introduces <code>this</code>, <code>delegate</code> and <code>owner</code> as being important implicit variables in the context of Groovy closures.
+
+Chapter 4 - Example DSL: GeeTwitter
+
+The fourth chapter introduces a custom DSL around Twitter4J [<a href="http://twitter4j.org/en/index.jsp">1</a>] - a library containing Java classes for accessing Twitter's REST API [<a href="http://apiwiki.twitter.com/REST+API+Documentation">0</a>]. The first version of GeeTwitter introduces Groovy's optional parenthesis on method calls and shows possible approaches for using that DSL in Groovy scripts:
+
+{% highlight groovy %} 
+//...
+
+static void eachFollower(Closure c)  {
+...
+}
+
+// usage:
+
+eachFriend {
+  println it
+}
+ {% endhighlight %}
+
+At the end of this chapter, the reader has built a source-complete abstract base class for creating GeeTwitter DSL scripts.
+
+Chapter 5 - Power Groovy DSL Features
+
+Now it really comes down to the crunch. This chapter can be seen as most important chapter, as it covers a lot of ground about Groovy language features used in real-world frameworks like Grails: Groovy's meta object protocol and meta-programming, the <code>ExpandoMetaClass</code>, the Builder pattern and Groovy's base builder classes. The chapter gives a good appreciation of what can be achieved by using these powerful features and gives a greater understanding how to use fully-functioning custom DSLs.
+
+Chapter 6 - Existing Groovy DSLs
+
+This chapter mainly handles Grails-specific DSLs and how they are implemented in the light of using Groovy's power DSL features. In addition, the author  gives an overview of some selected TDD frameworks out of Groovy space: GSpec, EasyB and Spock. The overview concentrates on what can be done with these frameworks and not so much of how this is done by the frameworks.
+
+Chapter 7 - Building a Builder
+
+<em>Hint: This chapter is available as sample chapter [<a href="https://www.packtpub.com/sites/default/files/6903-chapter-7-building-a-builder.pdf">2</a>].</em>
+
+The chapters starts with a detailed discussion of variable resolving strategies in the context of Groovy closures and summarizes the most import meta-programming features for Groovy DSL development. Afterwards, it introduces Groovy's <code>BuilderSupport</code> and <code>FactoryBuilderSupport</code>.
+
+Chapter 8 - Implementing a Rules DSL
+
+The eight chapter shows how to implement a business rules DSL based on the concept of Groovy scripts and bindings. The given example is about an imaginary broadband service provider program that needs business rules for rewarding customer accounts with a scoring system, leading to the Reward DSL. The chapter closes with a paragraph on testing DSLs with Groovy's <code>GroovyTestCase</code>.
+
+Chapter 9 - Integrating It All
+
+This chapter handles typical integration issues: using Java classes from Groovy code and vice-vera, how to use Groovy classes within the Spring framework via dependency injection and how to integrate scripts in existing Java applications.
+
+<h4>Summary</h4>
+
+The book is mainly for Java programmers or Groovy newbies with a Java background that want to integrate a custom Groovy DSL into an existing application. It starts with a brief introduction to Groovy and DSLs in general, takes a closer look at Groovy closures and moves on to practical examples on how to apply various features of the Groovy programming language to design custom domain-specific languages. The reader should get a fundamental understanding on how to built and integrate custom DSLs and how this was done by frameworks like Grails.
+
+<h4>Personal Opinion</h4>
+
+Groovy is a great language for designing domain-specific languages. Although it is easy once you are familiar with the most important concepts, messing with a Groovy DSL is like 'just get it working somehow' for Groovy or Grails beginners. This book equips its readers with a basic understanding about Groovy programming language features that can be used to create custom DSLs. This leads to a better understanding about how those concepts are used in Grails and other frameworks and surely raises the knowledge on Groovy programming features.
+
+<div>[3] <a href="https://www.packtpub.com/groovy-for-domain-specific-languages-dsl/book?utm_source=andresteingress.wordpress.com&amp;utm_medium=bookrev&amp;utm_content=blog&amp;utm_campaign=mdb_004098">Packt Publishing: Groovy for Domain-Specific Languages</a></div>
+<div>[5] <a href="http://www.amazon.com/Groovy-Domain-Specific-Languages-Fergal-Dearle/dp/184719690X/ref=sr_1_1?ie=UTF8&amp;s=books&amp;qid=1280521406&amp;sr=8-1">Amazon: Groovy for Domain-Specific Languages</a></div>
+<div>[4] <a href="http://www.dearle.com/home/">Fergan Dearle - Homepage</a></div>
+<div>[1] <a href="http://twitter4j.org/en/index.jsp">Twitter4J - a Java Library for the Twitter API</a></div>
+<br><br><div>[0] <a href="http://apiwiki.twitter.com/REST+API+Documentation">Twitter REST API Documentation</a></div>
+<div>[2] <a href="https://www.packtpub.com/sites/default/files/6903-chapter-7-building-a-builder.pdf">Building a Builder - Sample Chapter</a></div>

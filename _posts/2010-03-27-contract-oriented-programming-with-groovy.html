@@ -1,0 +1,125 @@
+---
+layout: post
+title: Contract-Oriented Programming with Groovy
+categories:
+- gcontracts
+- grails
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  blogger_author: Andre Steingress
+  blogger_d263388631120bb7ee0fc300fe57c4e6_permalink: '6957713318037408062'
+  _edit_lock: '1295332053'
+  _edit_last: '2'
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1293719795";}";
+  blogger_blog: grails-inside.blogspot.com
+  _flattr_post_language: en_GB
+  _flattr_post_category: text
+  _flattr_post_hidden: '0'
+  _flattr_btn_disabled: ''
+---
+<strong>Introduction</strong>
+
+One of the first programming-related books i've read thoroughly has been "Object Oriented Software Construction" by Bertrand Meyer [0]. Although the second release (!) has been released back in good-old 1997 it still contains a huge amount of object-oriented principles not seen in nowadays main-stream programming languages like Java or .Net C#.
+
+One of the concepts I liked best is <em>c</em><em>ontract-oriented programming</em> aka "design by contract". The basic idea is pretty genius: applying the mathematical principle of Hoare triples to classes and objects.
+
+A <em>Hoare triple</em> is always of the following form:
+<blockquote><em>{P} A {Q}</em></blockquote>
+A concrete triple says: <em>before some operation A executes the state P must be true. After execution of operation A, state Q must hold. </em>It's as simple as that.
+
+In an object-oriented context, application of Hoare triples result in the following so-called <em>assertion types</em>:
+
+<strong>Precondition: </strong>specifies the state the object must hold before a method is executed.
+
+<strong>Postcondition: </strong>specifies the state the object must hold after a method is executed.
+
+<strong>Class-Invariant: </strong>specifies the state an object must hold after it has been constructed, before and after each method call on that object.
+
+Unfortunately the principle of contract-oriented programming is not natively supported in most programming languages (except Eiffel). With the advance of aspect-oriented programming there have been some attempts in the Java world to add contract support, but none of them really seemed appropriate to me.
+
+<strong>Contracts for Groovy - gcontracts</strong>
+
+When I first read <a href="http://pniederw.wordpress.com/2010/03/04/3/">Peter Niederwiesers blog-post on closure annotations</a> contract-oriented programming came immediately to my mind. Through the introduction of AST transformations in Groovy 1.6 it is possible to modify a program's abstract syntax tree and add custom byte-code or modify it during the compilation process - i've already written <a href="http://grails-inside.blogspot.com/2010/03/implementing-custom-serializable.html">a short introduction on local and global AST transformations</a>.
+
+With AST transformations and closure annotations in mind I started to implement a first prototype that already supports the previously mentioned assertion types by providing Java annotations (<span style="font-family:'Courier New', Courier, monospace;">@Invariant</span>, <span style="font-family:'Courier New', Courier, monospace;">@Requires</span>, <span style="font-family:'Courier New', Courier, monospace;">@Ensures</span>). Before we take a look at the annotations and on the corresponding AST transformation stuff, I want to show you the outcome and how those contract annotations can be applied on Groovy classes:
+
+e.g. a <span style="font-family:'Courier New', Courier, monospace;">Person</span> class
+<blockquote><span style="font-family:'Courier New', Courier, monospace;">@Invariant({ firstName != null &amp;&amp; lastName != null })</span>
+<span style="font-family:'Courier New', Courier, monospace;">class Person {</span>
+<span style="font-family:'Courier New', Courier, monospace;"> String firstName </span>
+<span style="font-family:'Courier New', Courier, monospace;"> String lastName</span>
+<span style="font-family:'Courier New', Courier, monospace;"> String name</span>
+<span style="font-family:'Courier New', Courier, monospace;">
+</span>
+<span style="font-family:'Courier New', Courier, monospace;"> public Person() {} </span>
+<span style="font-family:'Courier New', Courier, monospace;">
+</span>
+<span style="font-family:'Courier New', Courier, monospace;"> public Person(final String firstName, final String lastName)  {</span>
+<span style="font-family:'Courier New', Courier, monospace;"> this.firstName = firstName</span>
+<span style="font-family:'Courier New', Courier, monospace;"> this.lastName = lastName</span>
+<span style="font-family:'Courier New', Courier, monospace;"> }</span>
+<span style="font-family:'Courier New', Courier, monospace;">
+</span>
+<span style="font-family:'Courier New', Courier, monospace;"> @Override </span>
+<span style="font-family:'Courier New', Courier, monospace;"> @Requires({ firstName.size() > 0 &amp;&amp; lastName.size() > 0 })</span>
+<span style="font-family:'Courier New', Courier, monospace;"> def String toString()  { </span>
+<span style="font-family:'Courier New', Courier, monospace;"> return "${firstName} und ${lastName}" </span>
+<span style="font-family:'Courier New', Courier, monospace;"> } </span>
+<span style="font-family:'Courier New', Courier, monospace;">
+</span>
+<span style="font-family:'Courier New', Courier, monospace;"> @Requires({ delimiter in ['.', ',', ':'] })</span>
+<span style="font-family:'Courier New', Courier, monospace;"> @Ensures({ name.size() > 1 } )</span>
+<span style="font-family:'Courier New', Courier, monospace;"> def initCompleteName(String delimiter)  {</span>
+<span style="font-family:'Courier New', Courier, monospace;"> name = "${firstName}${delimiter}${lastName}"</span>
+<span style="font-family:'Courier New', Courier, monospace;"> } </span>
+<span style="font-family:'Courier New', Courier, monospace;">}</span></blockquote>
+I know, the good-old stack example is a better choice but I needed a quick-and-dirty example on how to apply gcontracts annotations ;-) Let us quickly skip through all annotations and their meanings in that particular context:
+
+1. the <span style="font-family:'Courier New', Courier, monospace;">@Invariant</span> annotation just says that during the entire life-time of a person it's <span style="font-family:'Courier New', Courier, monospace;">firstName</span> and <span style="font-family:'Courier New', Courier, monospace;">lastName</span> property must never be set to <span style="font-family:'Courier New', Courier, monospace;">null</span>.
+2. whenever <span style="font-family:'Courier New', Courier, monospace;">toString()</span> is executed the object's <span style="font-family:'Courier New', Courier, monospace;">firstName</span> and <span style="font-family:'Courier New', Courier, monospace;">lastName</span><span style="font-family:'Courier New', Courier, monospace;"> size() </span>must be greater than zero
+3. whenever <span style="font-family:'Courier New', Courier, monospace;">initCompleteName</span> is called, parameter <span style="font-family:'Courier New', Courier, monospace;">delimiter</span> must be in a certain range.
+4. whenever <span style="font-family:'Courier New', Courier, monospace;">initCompleteName</span> is done, the name must be <span style="font-family:'Courier New', Courier, monospace;">initialized</span> to something bigger than 1.
+
+Note that e.g. the <span style="font-family:'Courier New', Courier, monospace;">@Requires </span>closure annotation has access to all method parameters and instance variables, so checking the delimiter being in a certain Groovy range just works. In addition, the AST transformation process injects the class invariant wherever feasible, e.g.
+<blockquote><span style="font-family:'Courier New', Courier, monospace;">def p = new Person('Max', 'Mustermann')</span>
+<span style="font-family:'Courier New', Courier, monospace;">p.setFirstName(null)</span></blockquote>
+causes an <span style="font-family:'Courier New', Courier, monospace;">AssertionError</span> since after the call to <span style="font-family:'Courier New', Courier, monospace;">setFirstName</span> the class invariant is not satisfied anymore.
+
+I hope you already see and feel that applying gcontracts can greatly improve readability and maintainability of your code since interface contracts are specified explicitly and are proved (if activated) at runtime. Of course, such mechanisms are ment to be used to determine programming errors and not business validation errors - but i guess i am going to take a look at invariants and their role in the software development process in another blog-post.
+
+Let's take a quick look at the implementation of gcontracts done so far. gcontracts by now provides three annotations:
+<blockquote><span style="font-family:'Courier New', Courier, monospace;">@Target(ElementType.TYPE)
+public @interface Invariant {</span>
+
+<span style="font-family:'Courier New', Courier, monospace;"> Class value();</span>
+<span style="font-family:'Courier New', Courier, monospace;">}</span></blockquote>
+is used on type-level to specify the class invariant.
+<blockquote><span style="font-family:'Courier New', Courier, monospace;">@Target(ElementType.METHOD)</span>
+<span style="font-family:'Courier New', Courier, monospace;">public @interface Requires {</span>
+<span style="font-family:'Courier New', Courier, monospace;"> Class value();</span>
+<span style="font-family:'Courier New', Courier, monospace;">}</span></blockquote>
+is used on method-level to specify preconditions.
+<blockquote><span style="font-family:'Courier New', Courier, monospace;">@Target(ElementType.METHOD)</span>
+<span style="font-family:'Courier New', Courier, monospace;">public @interface Ensures {</span>
+<span style="font-family:'Courier New', Courier, monospace;"> public abstract Class value();</span>
+<span style="font-family:'Courier New', Courier, monospace;">}</span></blockquote>
+is used on method-level to specify postconditions.
+
+As you can image, the real work of gcontracts is done in the AST transformation implementation which is done in the ContractValidationASTTransformation class.
+
+In a nutshell, the transformation visits all code parts which are annotated with the annotations above and adds <em>Java assertions</em> at the appropriate places. Although there is no explicit support for contract-oriented programming, Java provides the assertion statement: whenever assertion-checking is enabled and an assertion is found, e.g.
+<blockquote><span style="font-family:'Courier New', Courier, monospace;">assert count > 0 : "count must be greater than zero";</span></blockquote>
+that boolean expression is evaluated and if false a java.lang.AssertionError will be thrown. AST transformation uses that statement to inject pre-, postcondition and class-invariant checks (loop invariants are supposed to be added next) at appropriate code places. That includes that disabling checking of these constraints is as simple as deactivating Java assertions <a href="http://java.sun.com/j2se/1.4.2/docs/guide/lang/assert.html">[1]</a>.
+
+<strong>gcontracts on Github</strong>
+
+I pushed the current source code to a github repository: <a href="http://github.com/andresteingress/gcontracts">http://github.com/andresteingress/gcontracts</a><a href="http://github.com/andresteingress/gcontracts"></a>
+
+Please keep in mind that the project's code has neither been thoroughly tested nor is being ready to be used in production code - but i am going to work on it, in order to release the first version as soon as possible.
+
+[0] Object-Oriented Software Construction (2nd Edition), Bertrand Meyer, 1997, Prentice Hall
+<div>[1] <a href="http://java.sun.com/j2se/1.4.2/docs/guide/lang/assert.html">Programming with Assertions, Sun</a></div>

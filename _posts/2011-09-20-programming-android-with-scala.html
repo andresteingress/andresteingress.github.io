@@ -1,0 +1,390 @@
+---
+layout: post
+title: Programming Android with Scala
+categories:
+- android
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_post_language: en_GB
+  _flattr_post_category: text
+  _flattr_post_hidden: '0'
+  _flattr_btn_disabled: ''
+  _edit_last: '2'
+  _edit_lock: '1317132906'
+  _syntaxhighlighter_encoded: '1'
+  _wp_old_slug: ''
+---
+As I've mentioned in my previous blog post, I am working on several Android projects. Once you've done some larger projects and you have already worked with alternative JVM languages like Groovy [<a href="http://groovy.codehaus.org/">0</a>] or Scala [<a href="http://www.scala-lang.org/node/1305">1</a>], one quickly feels the need for reducing common code patterns found in every Android project. That was the main reason I chose to use Scala as main programming language for one of my free-time Android projects.
+
+This article is about my experiences with Scala and the language features I found most useful when working with the Android framework.
+
+<h3>Environment and Prerequisites</h3>
+
+First of all: I am an IntelliJ user, working on a MBP. I did not test how writing an Android app with Scala works out in Eclipse. I usually develop all my Android projects in IntelliJ as Eclipse and the Android plugin just did not work out for me (it constantly slows down, hangs, of course your mileage may vary).
+
+I installed the android-sdk, scala, sbt etc. with Homebrew {% highlight groovy %} brew install scala sbt android-sdk {% endhighlight %} and worked with the following package/software versions:
+
+<ul>
+<li>Scala: 2.9.1
+<li>Sbt: 0.10.1
+<li>android-sdk: r12
+
+<li>IntelliJ: 10.5.2
+<li>Mac OSX: 10.7.1
+</ul>
+
+<h3>Setting up the project structure and environment</h3>
+
+First of all: I don't want to scare you right away, but neither IntelliJ nor Eclipse (to my knowledge) offers support for developing Android projects with Scala in a continuous process from project creation to APK creation. There is no out-of-the-box configuration, you'll need to have some manual or scripted steps when developing outside the standard Android environment.
+
+On the other side, IntelliJ offers seperate module facets for Android and Scala projects. When combining the Scala and Android facet you'll get syntax completion for Scala and Android-specific files, automatic <tt>R.java</tt> file compilation, sbt APK debug package generation (with a separate run configuration) and, well, the joy to use Scala instead of Java for your Android project ;).
+
+I don't want to go into details of IntelliJ module configuration, but in case you chose to work with sbt [<a href="https://github.com/harrah/xsbt/wiki">3</a>] you can use a giter8 template [<a href="https://github.com/n8han/giter8#readme">2</a>] to jump-start with an sbt supported project structure holding an empty Android application and test setup (for more information see [<a href="https://github.com/jberkel/android-plugin">4</a>]).
+
+<h3>Using Scala for your <tt>Activity</tt> classes</h3>
+
+Once you are done setting up the environment, you can start with your first activity, let's call it <tt>HomeActivity</tt>. Let's take a look at the Java implementation.
+
+{% highlight java %} 
+public class HomeActivity extends Activity {
+
+    public void onCreate(Bundle savedState)  {
+        super.onCreate(savedState);
+        setContentView(R.layout.home);
+    }
+}
+ {% endhighlight %}
+
+Since we do need some UI widgets, we will add a login and password EditText field and a Button and add the according code to the <tt>Activity</tt> class:
+
+{% highlight java %} 
+public class HomeActivity extends Activity {
+
+private EditText usernameEditText;
+private EditText passwordEditText;
+private Button   loginButton;
+
+public void onCreate(Bundle savedState)  {
+  super.onCreate(savedState);
+  setContentView(R.layout.home);
+
+  usernameEditText = (EditText) findViewById(R.id.usernameEditText);
+  passwordEditText = (EditText) findViewById(R.id.passwordEditText);
+  loginButton = (Button) findViewById(R.id.loginButton);
+}
+}
+
+ {% endhighlight %}
+
+Next we'll register a <tt>View.OnClickListener</tt> to react on button clicks/touches:
+
+{% highlight java %} 
+
+public class HomeActivity extends Activity {
+
+private EditText usernameEditText;
+private EditText passwordEditText;
+private Button   loginButton;
+
+public void onCreate(Bundle savedState)  {
+  super.onCreate(savedState);
+  setContentView(R.layout.home);
+
+  usernameEditText = (EditText) findViewById(R.id.usernameEditText);
+  passwordEditText = (EditText) findViewById(R.id.passwordEditText);
+  loginButton = (Button) findViewById(R.id.loginButton);
+
+  loginButton.setOnClickListener(new View.OnClickListener() {
+    public void onClickListener(View view)  {
+        // do some validation stuff
+        startActivity(new Intent(HomeActivity.this, NextActivity.class));  
+    }
+  });
+}
+}
+
+ {% endhighlight %}
+
+That's it for now with our sample Java-based activity. Now let's see how the same Activity can be done using the Scala programming language.
+
+As can bee seen from the source samples above, Java quickly produces very bloated code. When working with the Android framework that bloat is typically driven by type casts, anonymous class definitions, inner class definitions, common code to initialize menu items, etc.
+
+Let's translate the <code>HomeActivity</code> into a Scala class. First of all we'll consider getting rid of the <tt>findViewById</tt> method calls and the type casts that have to be done for the return types. The sbt Android plugin generates a special singleton object for that purpose: the <tt>TR</tt> (typed resources) object. Within that class it creates typed references of type <tt>TypedResource</tt> for all the UI elements defined in the application's XML layout files.
+
+{% highlight scala %} 
+case class TypedResource[T](id: Int)
+
+object TR {
+  val usernameEditText = TypedResource[EditText](R.id.usernameEditText)
+  val passwordEditText = TypedResource[EditText](R.id.passwordEditText)
+
+  val loginButton = TypedResource[Button](R.id.loginButton)  
+}
+
+trait TypedViewHolder {
+  def view: View
+  def findView[T](tr: TypedResource[T]) = view.findViewById(tr.id).asInstanceOf[T]
+}
+
+trait TypedView extends View with TypedViewHolder { def view = this }
+
+trait TypedActivityHolder {
+  def activity: Activity
+  def findView[T](tr: TypedResource[T]) = activity.findViewById(tr.id).asInstanceOf[T]
+}
+
+trait TypedActivity extends Activity with TypedActivityHolder { def activity = this }
+
+object TypedResource {
+  implicit def view2typed(v: View) = new TypedViewHolder { def view = v }
+  implicit def activity2typed(act: Activity) = new TypedActivityHolder { def activity = act }
+}
+ {% endhighlight %}
+
+The <tt>TR</tt> object defines typed source objects for all XML defined widgets and some traits to be reused in activity classes and views. Once the <tt>TR</tt> class is generated by sbt we can use the <tt>TypedActivity</tt> trait (more about traits in a short moment) to reference our UI widgets in a type-safe way:
+
+{% highlight scala %} 
+
+class HomeActivity with TypedActivity {
+
+   override def onCreate(savedState: Bundle) {
+      super.onCreate(savedState)
+      
+      val usernameEditText = findView(TR.usernameEditText)
+      val passwordEditText = findView(TR.passwordEditText)
+      val loginButton = findView(TR.loginButton)
+
+      // ...
+   }
+}
+
+ {% endhighlight %} 
+
+In case you are wondering where the <tt>findView</tt> method comes from, it is defined by <tt>TypedActivity</tt>. In comparison to the Java implementation we have saved the type casts. Now let us register the button click listener.
+
+{% highlight scala %} 
+
+class HomeActivity with TypedActivity {
+
+   override def onCreate(savedState: Bundle) {
+      super.onCreate(savedState)
+      setContentView(R.layout.home)
+      
+      val usernameEditText = findView(TR.usernameEditText)
+      val passwordEditText = findView(TR.passwordEditText)
+    
+      val loginButton = findView(TR.loginButton)
+      loginButton.setOnClickListener(new View.OnClickListener() {
+
+       override def onClickListener(View view)  {
+           startActivity(new Intent(HomeActivity.this, classOf[NextActivity]))  
+         }
+       })
+     }
+}
+
+ {% endhighlight %} 
+
+OOOOkay - there is not much difference compared to the Java implementation, that's true. But now comes the interesting part. Scala provides certain languages features which allow you to greatly reduce code. And here comes a list with my top-five favorite Scala language features.
+
+Please note that I do not consider myself being a Scala expert - I would say I have average Scala knowledge. There might be better ways that lead to better results, please feel free to post them in the article's comment section!
+
+<h3>Favorite 1: Lazy Vals</h3>
+
+As you can see in the code sample above, we have still the burden to use <tt>findView</tt> in the <tt>onCreate</tt> method. If we wanted other methods to access these references we would have to introduce instance variables, which again increases our LOCs. We can avoid that circumstance by using so-called lazy vals. In fact, Scala provides a keyword for specifying lazy attributes: not surprisingly, <tt>lazy</tt>.
+
+{% highlight scala %} 
+class HomeActivity with TypedActivity {
+
+   lazy val usernameEditText = findView(TR.usernameEditText)
+   lazy val passwordEditText = findView(TR.passwordEditText)
+    
+   lazy val loginButton = findView(TR.loginButton)
+
+   override def onCreate(savedState: Bundle) {
+      super.onCreate(savedState)
+      setContentView(R.layout.home)
+      
+      loginButton.setOnClickListener(new View.OnClickListener() {
+
+       override def onClickListener(View view)  {
+           startActivity(new Intent(HomeActivity.this, classOf[NextActivity]))  
+         }
+       })
+     }
+}
+ {% endhighlight %}
+
+This makes all UI element lookup operations lazy, meaning that the widget reference is looked up only once on first access during runtime. If the lazy instance variable is not accessed, the <tt>findView</tt> method will not be executed, therefore saving lookup operations.
+
+In the example above, we could even further defer the registration of the <tt>OnClickListener</tt>:
+
+{% highlight scala %} 
+class HomeActivity with TypedActivity {
+
+   lazy val usernameEditText = findView(TR.usernameEditText)
+   lazy val passwordEditText = findView(TR.passwordEditText)
+    
+   lazy val loginButton = {
+      val b = findView(TR.loginButton)
+      b.setOnClickListener(new View.OnClickListener() {
+
+       override def onClickListener(View view)  {
+           startActivity(new Intent(HomeActivity.this, classOf[NextActivity]))  
+         }
+       })
+
+       b
+   }
+
+   override def onCreate(savedState: Bundle) {
+      super.onCreate(savedState)
+      setContentView(R.layout.home)
+    }
+}
+ {% endhighlight %}
+
+<h3>Favorite 2: Implicit type conversions</h3>
+
+Wouldn't it be nice to implement the <tt>View.OnClickListener</tt> interface with a Scala function, like that
+
+{% highlight scala %} 
+
+     loginButton.setOnClickListener((v: View) => startActivity(new Intent(HomeActivity.this, classOf[NextActivity])))
+
+ {% endhighlight %}
+
+To be honest, in a real world example you would have to enclose the functions body with curly braces (the example uses a single statement in the function body), but at least we got rid of the method interface declaration.
+
+The code above can be left as it is, by introducing an <i>implicit type conversion</i>.
+
+{% highlight scala %} 
+
+implicit def function2ViewOnClickListener(f: View => Unit) : View.OnClickListener = {
+
+   new View.OnClickListener() {
+     def onClick(view: View) {
+       f(view)
+     }
+   }
+
+}
+
+ {% endhighlight %}
+
+As long as the implicit conversion is in the appropriate scope every function from source scope View to target scope Unit will be automatically converted to an instance of the anonymous class implementing the View.OnClickListener interface. Of course there are bunch of interfaces to write implicit conversions for, in my first Scala Android project I put them all in a trait to reuse them accross activities.
+
+<h3>Favorite 3: Traits</h3>
+
+A Java interface is very abstract. It is as abstract as an interface can be (even the interface contracts are omitted ;)). An abstract class is better in a way that it can provide method implementations, but than the problem swaps over to single inheritance as you can't use multiple abstract classes as parent classes. 
+
+When your classes are defined in a framework context, this gets a real problem because the single inheritance line is most of the time already reserved for framework descending classes, meaning that custom classes extending from framework classes can't extend custom classes anymore. That reuse restriction causes by single inheritance strikes me with its full power in my Java-based Android projects.
+
+Let us assume that we need to extend both, class <tt>Activity</tt> and class <tt>ListActivity</tt>. Since the framework and Java's single inheritance mechanism forces us to extend both activity classes, there is no way to extend from a common <tt>OptionsMenu</tt> base class that uniformly creates the application options menu. 
+
+With Scala we can create a so-called <i>trait</i>. A trait can be imagined as an abstract or concrete class that can be mixed into another class. A Scala class can mix-in several traits, but can only extend from a single descendant class. The Scala guys to to speak of "mix-in classes" instead of "multiple inheritance of classes" since traits differ in some ways from how multiple inheritance is implemented in other programming languages. 
+
+A trait for the <tt>OptionsMenu</tt> could be written as:
+
+{% highlight scala %} 
+trait OptionsMenu extends Activity {
+
+  override def onCreateOptionsMenu(menu: Menu) : Boolean = {
+    menu.addSubMenu("Test")
+
+    true
+  }
+}
+
+ {% endhighlight %}
+
+The trait can now be used in all classes that directly or indirectly extend from <tt>Activity</tt> - and this includes <tt>ListActivity</tt>!
+
+{% highlight scala %} 
+class NextActivity extends ListActivity with OptionsMenu {
+
+  // ...
+}
+ {% endhighlight %}
+
+Another example would be further shortening the code for our <tt>HomeActivity</tt>by providing a base trait that extends from <tt>TypedActivity</tt> and the newly created <tt>OptionsMenu</tt> trait.
+
+{% highlight scala %} 
+trait Activity with TypedActivity with OptionsMenu {
+
+  lazy val usernameEditText = findView(TR.usernameEditText)
+  lazy val passwordEditText = findView(TR.passwordEditText)
+  lazy val loginButton = findView(TR.loginButton)
+
+  val contentView: Int
+
+  val init: Unit
+
+  override def onCreate(savedInstanceState: Bundle) {
+    setContentView(contentView)
+
+    init
+  }
+}
+ {% endhighlight %}
+
+Wit the base class shown above the <tt>HomeActivity</tt> can be minimized to the following code piece.
+
+{% highlight scala %} 
+class HomeActivity extends Activity {
+
+  val contentView: Int = R.layout.activity_home
+
+  val init = {
+    loginButton.setOnClickListener( (v: View) => startActivity(new Intent(HomeActivity.this, classOf[NextActivity] )))
+  }
+}
+ {% endhighlight %}
+
+If we compare this class with our initial Java class in the first source code example, you'll see that with the help of <i>lazy vals</i>, <i>implicit conversions</i> and <i>traits</i> we already reduced the source code to a great extent.
+
+<h3>Favorite 4: Pattern matching and Case Classes</h3>
+
+If you have ever taken a look at Erlang you'll have with no doubt a clear picture of how integral pattern matching can be a  very characteristic programming language property. Scala provides various pattern matching mechanisms by providing the <tt>match</tt> and <tt>case</tt> keywords.
+
+{% highlight scala %} 
+
+override def onCreateDialog(dialogId: Int) : Dialog = {
+   dialogIg match {
+     case SHOW_ALERT_DIALOG => // create the dialog instance
+     case _ => throw new IllegalArgumentException("Dialog " + dialogId + " could not be created!")
+   }
+}
+
+ {% endhighlight %}
+
+Pattern matching in Scala is mighty. It does not work for integer values only, it works for strings and various other types [<a href="http://www.scala-lang.org/node/120">5</a>]. A special case of pattern matching can be realized with so-called <i>case classes</i>. 
+
+A case class defines an immutable type with a pre-generated <tt>toString</tt>/<tt>hashCode</tt>/<tt>equals</tt> method implementations, a factory <tt>apply</tt> method, and automatic <tt>val</tt> prefixing.
+
+Case classes can be used like good-old records in several corners of the Android framework, e.g. for implementing a view holder.
+
+{% highlight scala %} 
+case class ViewHolder (checkBox: CheckBox, textView: TextView)
+ {% endhighlight %} 
+
+<h3>Conclusion</h3>
+
+Scala does not aim to be an evolutionary successor of the Java programming language. It is a functional and object-oriented language with its own type system, features and - hard to grasp for hardcore Java hackers at first sight - its own language syntax. On the other hand, the Android SDK is a Java-based framework, naturally using Java concepts and patterns found in other Java frameworks. Scala provides neat features to greatly reduce framework clue code allowing to concentrate on application logic and domain classes. 
+
+You can find the article's source code examples at Github [<a href="https://github.com/andresteingress/scala-android-examples">6</a>].
+
+<br><br><div>[0] <a href="http://groovy.codehaus.org/">The Groovy Programming Language - http://groovy.codehaus.org/</a></div>
+<div>[1] <a href="http://www.scala-lang.org/node/1305">Learning Scala - http://www.scala-lang.org/node/1305</a></div>
+<div>[2] <a href="https://github.com/n8han/giter8#readme">Giter8 Templates - https://github.com/n8han/giter8#readme</a></div>
+<div>[3] <a href="https://github.com/harrah/xsbt/wiki">SBT Scala Simple Build Tool - https://github.com/harrah/xsbt/wiki</a> </div>
+<div>[4] <a href="https://github.com/jberkel/android-plugin">SBT Android Plugin</a></div>
+<div>[5] <a href="http://www.scala-lang.org/node/120">Scala Pattern Matching - http://www.scala-lang.org/node/120</a></div>
+<div>[6] <a href="https://github.com/andresteingress/scala-android-examples">Scala Android Examples - https://github.com/andresteingress/scala-android-examples</a></div>
+
+<a class="FlattrButton" style="display:none;" href="http://blog.andresteingress.com/2011/09/20/programming-android-with-scala/"></a>
+<noscript><a href="http://flattr.com/thing/404168/Programming-Android-with-Scala" target="_blank">
+<img src="http://api.flattr.com/button/flattr-badge-large.png" alt="Flattr this" title="Flattr this" border="0" /></a></noscript>

@@ -1,0 +1,110 @@
+---
+layout: post
+title: 'Grails: Splitting resources.groovy'
+categories:
+- grails
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_post_language: en_GB
+  _flattr_post_category: text
+  _flattr_post_hidden: '0'
+  _flattr_btn_disabled: ''
+  _syntaxhighlighter_encoded: '1'
+  _edit_last: '2'
+  _edit_lock: '1295332349'
+  jabber_published: '1286955237'
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1293719889";}";
+  email_notification: '1286955239'
+  _wp_old_slug: ''
+---
+Grails provides a neat way to specify Spring bean definitions with its custom Beans DSL [<a href="http://grails.org/doc/latest/guide/14.%20Grails%20and%20Spring.html#14.3%20Runtime%20Spring%20with%20the%20Beans%20DSL">0</a>]. The bean definition is found in <code>grails-app/conf/spring/resources.groovy</code>:
+
+{% highlight groovy %} 
+beans = {
+    myBean(SomeBeanClass)  {
+        someProperty = ref('someReference')
+    }
+    // ...
+}
+ {% endhighlight %}
+
+Another way to specify beans is via XML definitions:
+
+{% highlight xml %} 
+<beans:beans
+        xmlns:beans="http://www.springframework.org/schema/beans"
+        xmlns:util="http://www.springframework.org/schema/util"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+            http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+            http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-3.0.xsd">
+
+    <beans:bean id="myBean" class="org.ast.beans.SomeBeanClass">
+        <beans:property name="someProperty" ref="someReference" />
+    </beans:bean>
+    <!-- ... -->
+</beans:beans>
+ {% endhighlight %}
+
+These can be specified in <code>grails-app/conf/spring/resources.xml</code>.
+
+Grails watches <code>resources.groovy</code> and <code>resources.xml</code> for changes and reloads them at runtime if necessary.
+
+<h4>Splitting up with Bean XML files</h4>
+
+As the bean definition count raises, it is preferable to split <code>resources.groovy</code> into separate bean definition files. Using Spring's bean definition XML this can be done via the <code>&lt;beans:import/&gt;</code> XML tag:
+
+{% highlight xml %} 
+<beans:beans
+        xmlns:beans="http://www.springframework.org/schema/beans"
+        xmlns:util="http://www.springframework.org/schema/util"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+            http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+            http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-3.0.xsd">
+
+    <beans:import resource="common.xml"/>
+    <beans:import resource="job-definitions.xml"/>
+    <!-- ... -->
+</beans:beans>
+ {% endhighlight %}
+
+It is considered good practice to split up a large Spring bean definition file into multiple files, whereas each file contains beans of the same thematic context (e.g. all beans related to batch jobs go to 'batch-common.xml', all beans related to data-source config goto to 'data-source.xml', etc.).
+
+<h4>Splitting up in Beans DSL</h4>
+
+So far for XML bean definition files, but what about splitting <code>resources.groovy</code> into separate groovy definitions?
+
+Since Grails 1.2, there is a way to do this (although not explicitly documented in the Grails reference documentation). Grails' Beans DSL is interpreted via a <code>grails.spring.BeanBuilder</code> instance which in turn provides method
+
+{% highlight java %} 
+public void importBeans(String resourcePattern) {
+// ...
+}
+ {% endhighlight %}
+
+This method can be used inside the Beans DSL to load arbitrary Spring definitions either specified in XML or Bean DSL groovy files:
+
+{% highlight groovy %} 
+beans = {
+    importBeans('file:grails-app/conf/spring/common.xml)
+    importBeans('file:grails-app/conf/spring/job-definitions.xml)
+    importBeans('file:grails-app/conf/spring/integration.groovy)
+    // ...
+}
+ {% endhighlight %}
+
+The <code>String</code> parameter of <code>importBeans</code> might be an arbitrary resource pattern which is resolved at runtime using Spring's <code>org.springframework.core.io.support.ResourcePatternResolver</code>, e.g. it would be possible to import multiple XML and/or groovy files using '*' like:
+
+{% highlight groovy %} 
+importBeans('file:grails-app/conf/spring/*.xml)
+ {% endhighlight %}
+
+
+
+<br><br><div>[0] <a href="http://grails.org/doc/latest/guide/14.%20Grails%20and%20Spring.html#14.3%20Runtime%20Spring%20with%20the%20Beans%20DSL">Grails Beans DSL</a></div>
+
+<div>[1] <a href="http://jira.codehaus.org/browse/GRAILS-2653">BeanBuilder should support import</a></div>

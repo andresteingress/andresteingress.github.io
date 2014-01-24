@@ -1,0 +1,316 @@
+---
+layout: post
+title: To Scale or not to Scale
+categories:
+- android
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_post_language: en_GB
+  _flattr_post_category: text
+  _flattr_post_hidden: '0'
+  _flattr_btn_disabled: ''
+  _edit_last: '2'
+  _edit_lock: '1317132782'
+  _syntaxhighlighter_encoded: '1'
+  _wp_old_slug: ''
+---
+As this is yet another day I can't remember the various differences and meanings of the <tt>android:scaleType</tt> attribute values, I decided to have a closer look at the scaling mechanisms provided by <tt>ImageView</tt>.
+
+<h3>The <tt>ImageView</tt> died that day</h3> 
+
+Android's <tt>ImageView</tt> class is used to draw arbitrary <tt>Drawable</tt> objects [<a href="http://developer.android.com/reference/android/widget/ImageView.html">0</a>]. For the purpose of better understanding its internals, let us assume this class was not part of the Android framework and we would have to introduce a similar class for our project. How should the implementation look like?
+
+<h3>The <tt>DrawableView</tt></h3>
+
+Let's name our class <tt>DrawableView</tt> as it is used solely to show object instances of type <tt>Drawable</tt> and extend it from <tt>View</tt> as this is the case with every other UI widget.
+
+{% highlight java %} 
+
+public class DrawableView extends View {
+
+    public DrawableView(Context context) {
+        super(context);
+    }
+
+    public DrawableView(Context context, AttributeSet attrs) {
+        super(context, attrs);
+    }
+
+    public DrawableView(Context context, AttributeSet attrs, int defStyle) {
+        super(context, attrs, defStyle);
+    }
+}
+
+ {% endhighlight %}
+
+Now we have to add a custom <tt>drawable</tt> attribute to be used in the XML layout definition. So let's create a <tt>res/values/attrs.xml</tt>
+
+{% highlight xml %} 
+<resources>
+    <declare-styleable name="com.example.DrawableView">
+        <attr name="src" format="reference"/>
+    </declare-styleable>
+</resources>
+ {% endhighlight %}
+
+And add code to our <tt>DrawableView</tt> to retrieve the <tt>Drawable</tt> instance that will later on be referenced via the newly created <tt>src</tt> XML attribute
+
+{% highlight java %} 
+
+// ...
+
+private Drawable drawable;
+
+public DrawableView(Context context, AttributeSet attrs, int defStyle) {
+        super(context, attrs, defStyle);
+
+        TypedArray typedArray = context.obtainStyledAttributes(attrs, R.styleable.com_example_DrawableView, defStyle, 0);
+        drawable = typedArray.getDrawable(R.styleable.com_example_DrawableView_src);
+
+        typedArray.recycle();
+}
+
+// ...
+
+ {% endhighlight %}
+
+Reading the <tt>src</tt> XML attribute in combination with the standard Android XML attributes already allows us to specify a header image in our layout view.
+
+{% highlight xml %} 
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:example="http://schemas.android.com/apk/res/com.example"
+
+    android:orientation="vertical"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent">
+
+    <com.example.DrawableView
+        android:id="@+id/header"
+        android:layout_height="wrap_content"
+        android:layout_width="fill_parent"
+        example:src="@drawable/header"/>
+
+</LinearLayout>
+ {% endhighlight %}
+
+As you can see in the code snippet above, <tt>android:layout_width</tt> and <tt>android:layout_height</tt> are used to specify the <tt>View</tt>'s size. In my case the header image is 800 x 200 pixels, now the question raises what to do if a) the view is larger than the referenced image or b) the view is smaller than the referenced image.
+
+Let's start with the first case - the view is larger than the image.
+
+<h3>Case 1  - View &gt; Image</h3>
+
+If the available view space is larger than the image, we want a way to specify that the image should be centered horizontally and vertically within the available space - this is exactly the case with <tt>ImageView.ScaleType.CENTER</tt>. The image is centered without scaling.
+
+To make our <tt>DrawableView</tt> work we will have to implement <tt>onMeasure</tt> first.
+
+{% highlight java %} 
+
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+
+        int width  = drawable.getIntrinsicWidth();
+        int height = drawable.getIntrinsicHeight();
+
+        width  = Math.max(width, getSuggestedMinimumWidth());
+        height = Math.max(height, getSuggestedMinimumHeight());
+
+        setMeasuredDimension(resolveSize(width, widthMeasureSpec), resolveSize(height, heightMeasureSpec));
+    }
+
+ {% endhighlight %} 
+
+First of all we'll have to read the drawable's width and height. If a minimum size is specified we'll have to take that into account using the <tt>Math.max</tt> static method. The most important part is the final line: here we used the <tt>View.resolveSize</tt> method to set the measured width and height accordingly.
+
+<tt>resolveSize</tt> acts upon the parent views measure specification. In our case we are using a linear layout that fills its parent view and we have specified <tt>android:layout_width="fill_parent"</tt> and <tt>android:layout_height="wrap_content"</tt>. Given we use a very small header file for testing purposes (e.g. with 200 x 50 pixels), <tt>resolveSize</tt> would return the width of the actual screen (e.g. 320) but the height of the drawable we suggested. If we would have declared the height to fill the parent view, <tt>resolveSize</tt> would return the total height otherwise.
+
+Now let us implement the drawing functionality.
+
+{% highlight java %} 
+
+    private Drawable drawable;
+    private Matrix matrix = new Matrix();
+
+    private int drawableWidth, drawableHeight;
+    private int viewWidth, viewHeight;
+
+    @Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+
+        drawableWidth  = drawable.getIntrinsicWidth();
+        drawableHeight = drawable.getIntrinsicHeight();
+
+        int width  = Math.max(drawableWidth, getSuggestedMinimumWidth());
+        int height = Math.max(drawableHeight, getSuggestedMinimumHeight());
+
+        viewWidth  = resolveSize(width, widthMeasureSpec);
+        viewHeight = resolveSize(height, heightMeasureSpec);
+
+        setMeasuredDimension(viewWidth, viewHeight);
+    }
+
+
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+
+        int saveCount = canvas.save();
+
+        // this will center the small header image
+        matrix.setTranslate((int) ((viewWidth - drawableWidth) * 0.5f + 0.5f), (int) ((viewHeight - drawableHeight) * 0.5f + 0.5f));
+
+        canvas.concat(matrix);
+
+        drawable.setBounds(0, 0, drawableWidth, drawableHeight);
+        drawable.draw(canvas);
+
+        canvas.restoreToCount(saveCount);
+    }
+
+ {% endhighlight %}
+
+I had to refactor the previous code in <tt>onMeasure</tt>, to store the measured width and height in instance variables. Just drawing the given <tt>drawable</tt> on the canvas is easy and is done by a call to <tt>drawable.draw(canvas)</tt>. But we want our drawable to be centered in the middle of our <tt>DrawableView</tt> bounds. This is done by applying a matrix which translates every single pixel of the drawable by a given amount of pixels. 
+
+Translation is nothing but a simple calculation whereas each point in matrix M gets translated via <i>M' = M * T(dx, dy)</i>.
+
+<img src="http://blog.andresteingress.com/wp-content/uploads/2011/09/header_small_centered.png" alt="" title="header_small_centered" width="328" height="492" class="aligncenter size-full wp-image-1509" />
+
+With the code above we have already implemented exactly the same functionality as if we applied <tt>android:scaleType="center"</tt> to an Android <tt>ImageView</tt>. Cool, isn't it? Now let's consider a case that includes image scaling.
+
+<h3>Case 2 - View &lt; Drawable </h3>
+
+Let us assume we replace the small header image with a large one, say 800 x 200 px. With a screen height of 480 px the height of the image would fit, but the width of the image is too large. What to do in that case? One approach would be to still keep the image ratio, but scale the image so that at least one axis fits for the view and center the result - which leads to cropping the left/right and/or upper/lower part of the image.
+
+That means for our 800 x 200 px image, that the full height is drawn (assuming the screen height has 480 px), but the image width is cropped by 480 pixels, 240 left and 240 right.
+
+{% highlight java %} 
+    
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+
+        int saveCount = canvas.save();
+
+        float scale;
+        float dx = 0, dy = 0;
+
+        if (drawableWidth * viewHeight > viewWidth * drawableHeight) {
+            scale = (float) viewHeight / (float) drawableHeight;
+            dx = (viewWidth - drawableWidth * scale) * 0.5f;
+        } else {
+            scale = (float) viewWidth / (float) drawableWidth;
+            dy = (viewHeight - drawableHeight * scale) * 0.5f;
+        }
+
+        matrix.setScale(scale, scale);
+        matrix.postTranslate((int) (dx + 0.5f), (int) (dy + 0.5f));
+
+        canvas.concat(matrix);
+
+        drawable.setBounds(0, 0, drawableWidth, drawableHeight);
+        drawable.draw(canvas);
+
+        canvas.restoreToCount(saveCount);
+    }
+
+ {% endhighlight %}
+
+The scaling mechanism seen in the <tt>onDraw</tt> method above is used to scale the image accordingly to the view's bounds. In our case, we specified <tt>fill_parent</tt> and <tt>wrap_content</tt>, but that could have been also absolute measures or other layout measures. 
+
+<img src="http://blog.andresteingress.com/wp-content/uploads/2011/09/header_centerCrop.png" alt="" title="header_centerCrop" width="323" height="484" class="aligncenter size-full wp-image-1510" />
+
+Ah, and the code above is exactly what <tt>android:scaleType="centerCrop"</tt> causes.
+
+But cropping isn't that beautiful, is it? Let's implement the <tt>onDraw</tt> method to scale the image so that it fits within the given view bounds, still keeping the image ratio.
+
+{% highlight java %} 
+    @Override
+    protected void onDraw(Canvas canvas) {
+        super.onDraw(canvas);
+
+        int saveCount = canvas.save();
+
+        float scale;
+        float dx;
+        float dy;
+
+        if (drawableWidth <= viewWidth &amp;&amp; drawableHeight <= viewHeight) {
+            scale = 1.0f;
+        } else {
+            scale = Math.min((float) viewWidth / (float) drawableWidth,
+                    (float) viewHeight / (float) drawableHeight);
+        }
+
+        dx = (int) ((viewWidth - drawableWidth * scale) * 0.5f + 0.5f);
+        dy = (int) ((viewHeight - drawableHeight * scale) * 0.5f + 0.5f);
+
+        matrix.setScale(scale, scale);
+        matrix.postTranslate(dx, dy);
+
+        canvas.concat(matrix);
+
+        drawable.setBounds(0, 0, drawableWidth, drawableHeight);
+        drawable.draw(canvas);
+
+        canvas.restoreToCount(saveCount);
+    }
+ {% endhighlight %}
+
+As you can see in the screenshot below, the actual <tt>View</tt> bounds are now larger than the drawable height what we returned in <tt>onMeasure</tt>. Android's <tt>ImageView</tt> behaves exactly the same, but it provides an attribute to adjust the view bounds to the image bounds: <tt>android:adjustViewBounds</tt>.
+
+<img src="http://blog.andresteingress.com/wp-content/uploads/2011/09/header_centerInside.png" alt="" title="header_centerInside" width="322" height="485" class="aligncenter size-full wp-image-1511" />
+
+To apply the view bounds to the scaled drawable dimensions, we would need to write
+
+{% highlight xml %} 
+<ImageView
+        android:id="@+id/header"
+        
+        android:layout_height="wrap_content"
+        android:layout_width="fill_parent"
+        android:scaleType="centerInside"
+
+        android:adjustViewBounds="true"
+
+        android:src="@drawable/header"/>
+ {% endhighlight %} 
+
+Which results in
+
+<img src="http://blog.andresteingress.com/wp-content/uploads/2011/09/header_adjustView.png" alt="" title="header_adjustView" width="324" height="482" class="aligncenter size-full wp-image-1533" />
+
+<h3>What about the other <tt>ScaleType</tt> configuration values?</h3>
+
+What we did not see so far is the implementation of <tt>ImageView.ScaleType.FIT_*</tt> attributes and <tt>ImageView.ScaleType.MATRIX</tt>.
+
+The <tt>ImageView.ScaleType.MATRIX</tt> attribute can be set to use a custom matrix when drawing the image. With <tt>ImageView.setImageMatrix</tt> arbitrary operations can be executed during drawing the drawable.
+
+All <tt>FIT_*</tt> scale types actually use the <tt>Matrix.setRectToRect</tt> method, which allows to translate between two given rectangular bounds.
+
+{% highlight java %} 
+
+Rect src = new Rect(0, 0, drawableWidth, drawableHeight);
+Rect dst = new Rect(0, 0, viewWidth, viewHeight);
+                
+matrix.setRectToRect(src, dst, scaleType);
+
+ {% endhighlight %}
+
+The interesting part in the example above is the <tt>scaleType</tt>. This can be one of <tt>Matrix.ScaleToFit</tt> enumeration values: <tt>CENTER</tt>, <tt>START</tt>, <tt>END</tt> and <tt>FILL</tt> which exactly map to <tt>ImageView.ScaleType</tt>'s <tt>FIT_CENTER</tt>, <tt>FIT_START</tt>, <tt>FIT_END</tt> and <tt>FIT_XY</tt>. This means that all fit operations internally use a drawing matrix that scale from the drawl bounds to the actual view bounds.
+
+<h3>Conclusion</h3>
+
+This article tried to bring light into Android's <tt>ImageView</tt> various scaling options. In fact, with some basic knowledge about the <tt>View</tt>, <tt>Canvas</tt> and <tt>Matrix</tt> classes and some Matrix operations we were able to implement our <tt>DrawableView</tt>clone.
+
+The code for this blog post can be found at Github: <a href="https://github.com/andresteingress/android-drawable-view">https://github.com/andresteingress/android-drawable-view</a> [<a href="https://github.com/andresteingress/android-drawable-view">1</a>]
+
+<br><br><div>[0] <a href="http://developer.android.com/reference/android/widget/ImageView.html">The ImageView Documentation - http://developer.android.com/reference/android/widget/ImageView.html</a></div>
+<div>[1] <a href="https://github.com/andresteingress/android-drawable-view">android-drawable-view Example Project @ Github - https://github.com/andresteingress/android-drawable-view</a></div>
+
+<a class="FlattrButton" style="display:none;" rev="flattr;button:compact;" href="http://blog.andresteingress.com/2011/09/22/to-scale-or-not-to-scale/"></a>
+<noscript><a href="http://flattr.com/thing/404166/To-Scale-or-not-to-Scale" target="_blank">
+<img src="http://api.flattr.com/button/flattr-badge-large.png" alt="Flattr this" title="Flattr this" border="0" /></a></noscript>

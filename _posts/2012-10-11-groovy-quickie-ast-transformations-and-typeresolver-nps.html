@@ -1,0 +1,86 @@
+---
+layout: post
+title: 'Groovy Quickie: AST Transformations and TypeResolver NPs'
+categories:
+- ast transformations
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _syntaxhighlighter_encoded: '1'
+  _wp_old_slug: ''
+  _edit_lock: '1349966129'
+  _edit_last: '2'
+---
+I have seen this exception every now and than, but today I write this blog post mainly to remind myself of the error cause (and share it with the reader, of course :-)). 
+
+{% highlight groovy %} 
+
+Caused by: java.lang.NullPointerException
+    at com.sun.beans.x.resolve(TypeResolver.java:203)
+    at com.sun.beans.TypeResolver.resolve(TypeResolver.java:218)
+    at com.sun.beans.TypeResolver.resolve(TypeResolver.java:169)
+    at com.sun.beans.TypeResolver.resolve(TypeResolver.java:218)
+    at com.sun.beans.TypeResolver.resolveInClass(TypeResolver.java:96)
+    at java.beans.FeatureDescriptor.getParameterTypes(FeatureDescriptor.java:387)
+    at java.beans.MethodDescriptor.setMethod(MethodDescriptor.java:114)
+    at java.beans.MethodDescriptor.<init>(MethodDescriptor.java:72)
+    at java.beans.MethodDescriptor.<init>(MethodDescriptor.java:56)
+    at java.beans.Introspector.getTargetMethodInfo(Introspector.java:1150)
+    at java.beans.Introspector.getBeanInfo(Introspector.java:416)
+    at java.beans.Introspector.getBeanInfo(Introspector.java:163)
+    at groovy.lang.MetaClassImpl$15.run(MetaClassImpl.java:2924)
+    at java.security.AccessController.doPrivileged(Native Method)
+    at groovy.lang.MetaClassImpl.addProperties(MetaClassImpl.java:2922)
+    at groovy.lang.MetaClassImpl.initialize(MetaClassImpl.java:2905)
+
+ {% endhighlight %}
+
+GContracts issue #36 [<a href="https://github.com/andresteingress/gcontracts/issues/36">0</a>] mentions this issue occurring on Oracle JRE 7.0 Update 10 with 1.2.9. 
+
+I located the error cause in the AST transformation that generates a class from the annotation closure expression. The code takes the <tt>Parameter</tt> instances of the current <tt>MethodNode</tt> and use them directly to create a new <tt>MethodNode</tt>.
+
+{% highlight groovy %} 
+
+parameters.addAll(new ArrayList<Parameter>(Arrays.asList(methodNode.getParameters())));
+// ...
+
+MethodNode method =
+                answer.addMethod("doCall", ACC_PUBLIC, ClassHelper.Boolean_TYPE, parameters.toArray(new Parameter[parameters.size()]), ClassNode.EMPTY_ARRAY, expression.getCode());
+// ...
+
+ {% endhighlight %}
+
+In most cases this approach works out-of-the-box. But problems occur when generic method parameters come into play: 
+
+{% highlight groovy %} 
+class A {
+
+   @Ensures ({ type.isInstance( result ) })
+   <T> T extension( Class<T> type, T value )
+   {
+     return value
+  }
+}
+ {% endhighlight %}
+
+This caused the generated <tt>MethodNode</tt> to be equipped with a formal type parameter <tt>T</tt>, although the newly generated method itself was not generic. That has been the cause for the <tt>NullPointerException</tt> being thrown during runtime during bean introspection in <tt>java.beans.FeatureDescriptor#getParameterTypes()</tt>:
+
+{% highlight groovy %} 
+
+static Class[] getParameterTypes(Class base, Method method) {
+        if (base == null) {
+            base = method.getDeclaringClass();
+        }
+        return TypeResolver.erase(TypeResolver.resolveInClass(base, method.getGenericParameterTypes()));
+    }
+
+ {% endhighlight %}
+
+<h3>Conclusion</h3>
+
+If you are writing AST transformations that's definitely a dangerous trap. When reusing <tt>Parameter</tt> objects from existing <tt>MethodNode</tt> instances, one needs to be careful and create deep copied instances.
+
+<br><br><div>[0] <a href="https://github.com/andresteingress/gcontracts/issues/36">Issue #36 - GContracts</a></div>

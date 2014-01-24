@@ -1,0 +1,123 @@
+---
+layout: post
+title: 'Groovy 2.0 Hint: @NotYetImplemented'
+categories:
+- ast transformations
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _syntaxhighlighter_encoded: '1'
+  _edit_lock: '1341309435'
+  _edit_last: '2'
+---
+Groovy 2.0 comes with a brand new AST transformation that is supposed to be applied on certain test methods: <tt>@NotYetImplemented</tt>. 
+
+Initially introduced by Marc Guillemot  [<a href="http://mguillem.wordpress.com/about/">0</a>] in HtmlUnit [<a href="http://htmlunit.sourceforge.net/">1</a>] and already implemented by <tt>GroovyTestCase.notYetImplemented</tt> [<a href="http://groovy.codehaus.org/api/groovy/util/GroovyTestCase.html#notYetImplemented(junit.framework.TestCase)">2</a>], this time it leverages Groovy's AST transformation mechanism.
+
+<h3>Applying @NotYetImplemented</h3>
+
+<tt>@NotYetImplemented</tt>'s functionality is pretty easy to describe: it inverts test case results. Thus, if a test method is annotated with <tt>@NotYetImplemented</tt> it will fail if it otherwise would succeed and vice versa. The implementation is pretty generic, therefore the annotation can be applied on JUnit 3/4 test methods and used in Spock [<a href="http://code.google.com/p/spock/">3</a>] specifications.
+
+Let's take a look at the following test case:
+
+{% highlight groovy %} 
+
+class PersonTests extends groovy.util.GroovyTestCase {
+ 
+    static class Person {
+        String name
+        Date   birthdate
+ 
+        def age() {
+            0
+        }
+    }
+ 
+    void testComputeAge() {
+        def p = new Person(name: 'John Doe', birthdate: Date.parse('dd.MM.yyyy', '01.01.1970'))
+        assert 42 == p.age()
+    }
+}
+
+ {% endhighlight %}
+
+<tt>Person.age()</tt> has not been implemented yet - it simply returns <tt>0</tt>. Thus the test case fails with the the following AssertionError:
+
+{% highlight groovy %} 
+
+There was 1 error:
+1) testComputeAge(PersonTests)Assertion failed: 
+
+assert 42 == p.age()
+          |  | |
+          |  | 0
+          |  PersonTests$Person@538edf3c
+          false
+
+	at org.codehaus.groovy.runtime.InvokerHelper.assertFailed(InvokerHelper.java:386)
+
+ {% endhighlight %}
+
+What to do if we do not want to remove but implement <tt>age()</tt> in the next iteration, as it isn't planned to use it in the source base anytime soon? We would have to uncomment our test method in order to let our test-suite execute successfully. This is the time <tt>@NotYetImplemented</tt> comes into play.
+
+When applying <tt>@NotYetImplemented</tt> on our test method, the test method will succeed at execution time - because the actual test method fails (inversion).
+
+{% highlight groovy %} 
+
+class PersonTests extends groovy.util.GroovyTestCase {
+ 
+    static class Person {
+        String name
+        Date   birthdate
+ 
+        def age() {
+            0
+        }
+    }
+ 
+    @NotYetImplemented 
+    void testComputeAge() {
+        def p = new Person(name: 'John Doe', birthdate: Date.parse('dd.MM.yyyy', '01.01.1970'))
+        assert 42 == p.age()
+    }
+}
+
+ {% endhighlight %}
+
+Et voilà, the test case turns green (assuming it's executed with a test runner visualizing successful tests with a green bar ;))! 
+
+If the <tt>age()</tt> implementation would change to 
+
+{% highlight groovy %} 
+def age() {
+    42
+}
+ {% endhighlight %}
+
+the execution of <tt>PersonTests</tt> would fail with:
+
+{% highlight groovy %} 
+There was 1 failure:
+1) testComputeAge(PersonTests)junit.framework.AssertionFailedError: Method is marked with @NotYetImplemented but passes unexpectedly
+	at sun.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+ {% endhighlight %}
+
+As long as the test method is annotated properly, an AssertionFailed error is thrown if the test method passes unexpectedly.
+
+<h3>Conclusion</h3>
+
+<tt>@NotYetImplemented</tt> can be used to invert test case results. This is helpful to implement test methods that don't currently work but should work in a few iterations. As its implementation is fairly generic it can be applied in JUnit 3, JUnit 4 and Spock test methods.
+
+The AST transformation is a result of the Gr8Conf EU hackergarten, special thanks to all contributors! 
+
+<br><br><div>[0] <a href="http://mguillem.wordpress.com/about/">Marc Guillemot - http://mguillem.wordpress.com/about/</a></div>
+<div>[1] <a href="http://htmlunit.sourceforge.net/">HtmlUnit - http://htmlunit.sourceforge.net/</a></div>
+<div>[2] <a href="http://groovy.codehaus.org/api/groovy/util/GroovyTestCase.html#notYetImplemented(junit.framework.TestCase)">GroovyTestCase.notYetImplemented </a></div>
+<div>[3] <a href="http://code.google.com/p/spock/">Spock</a></div>
+
+<a class="FlattrButton" style="display:none;" href="http://blog.andresteingress.com/2012/02/23/using-notyetimplemented-in-test-cases/"></a>
+<noscript><a href="http://flattr.com/thing/523229/Using-NotYetImplemented-in-Test-Cases" target="_blank">
+<img src="http://api.flattr.com/button/flattr-badge-large.png" alt="Flattr this" title="Flattr this" border="0" /></a></noscript>

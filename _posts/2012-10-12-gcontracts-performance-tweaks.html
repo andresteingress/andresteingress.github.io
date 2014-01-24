@@ -1,0 +1,161 @@
+---
+layout: post
+title: GContracts Performance Tweaks
+categories:
+- ast transformations
+- gcontracts
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _wp_old_slug: ''
+  _syntaxhighlighter_encoded: '1'
+  _edit_lock: '1350026822'
+  _edit_last: '2'
+---
+This article is about some discoveries I made along the way to improve performance (in terms of execution time of assertion enabled code) in the next version of GContracts [<a href="http://www.gcontracts.org">0</a>].
+
+<h3>Hidden Magic is Hidden</h3>
+
+Let's have a look at the following code sample showing a Groovy Fibonacci number calculator class:
+
+{% highlight groovy %} 
+
+import org.gcontracts.annotations.*
+
+class Calculator {
+
+    long fib(long limit)  {
+        long first = 1
+        long second = 2
+
+        while (second < limit)  {
+            long temp = first
+            first = second
+            second = temp + first
+        }
+
+       return second
+    }
+
+   static void main(def args)  {
+       def calc = new Calculator();
+
+       long start = System.currentTimeMillis()
+
+       for (int i = 0; i < 200000; i++) {
+           calc.fib(1000000)
+       }
+
+       long end = System.currentTimeMillis()
+
+       System.out.format("%d ms", (end - start))
+    }
+}
+
+ {% endhighlight %}
+
+The <tt>Calculator#main(args)</tt> method calculates all Fibonacci numbers up to 1.000.000 for 200.000 times. When I was running this code with default JVM parameters, I got the following output: <b>330 ms</b>. As the code is already statically typed, adding <tt>@CompileStatic</tt> was a no-brainer and fastened the code to run in <b>8 ms</b>.
+
+Let's assume we wanted to add a precondition to the <tt>Calculator#fib(long)</tt> method ensuring <tt>limit</tt> to be equal or greater than 2. With GContracts, the method signature would be modified to:
+
+{% highlight groovy %} 
+import org.gcontracts.annotations.*
+
+@groovy.transform.CompileStatic
+class Calculator {
+
+    @Requires({ limit >= 2 })
+    long fib(long limit)  {
+        // ...
+    }
+}
+
+ {% endhighlight %}
+
+In GContracts early days, it simply introduced a precondition assertion statement as the first statement (except the first statement was a super call) in the related method. With version 1.2.9, the Groovy AST browser [<a href="http://groovy.codehaus.org/Groovy+Console">1</a>] shows the following AST for the <tt>Calculator#fib</tt> method:
+
+<a href="http://blog.andresteingress.com/wp-content/uploads/2012/10/screen.png"><img src="http://blog.andresteingress.com/wp-content/uploads/2012/10/screen.png" alt="" title="GContracts AST Browser Output" width="918" height="351" class="aligncenter size-full wp-image-2127" /></a>
+
+WTF? There isn't even a sign of an assertion statement. So what has been the reason to introduce <tt>ContractExecutionTracker</tt>, <tt>ViolationTracker</tt> and all the other stuff (code)?
+
+<h3>Class Hierarchies and other Horror Scenarios</h3>
+
+<tt>ContractExecutionTracker</tt> is used to keep track of assertion executions. This has to be done in order to detect assertion circles and therefore avoid stack overflows.
+
+{% highlight groovy %}   
+
+@Invariant({ speed >= 0.0 })
+class Rocket {
+    def getSpeed() { 1.0 }
+}
+
+ {% endhighlight %}
+
+Without assertion tracking, even creating a new instance of <tt>Rocket</tt> would result in a stack-overflow. This is caused by the class invariant embedded into the constructor and the <tt>Rocket#getSpeed()</tt> method. When a new instance is created the class invariant is executed after initialization (the constructor) has finished. Within the class invariant, <tt>#getSpeed()</tt> is called which itself triggers the class invariant again - voilà, we're in a loop. 
+
+The <tt>Rocket</tt> example has been trivial. As GContracts inherits class invariants, pre- and postconditions in class hierarchies there are trickier scenarios with circling assertion checks. To sum up: <tt>ContractExecutionTracker</tt> keeps its own assertion stack trace for the current thread to check whether an assertion check is already in the call stack.
+
+The <tt>ViolationTracker</tt> that can be seen in the screenshot above is used to keep track of thrown <tt>AssertionError</tt> instances. Whenever assertions are triggered along the class hierarchy it keeps track of all violations and re-throws the first violation in the assertion line.
+
+In a nutshell, as of 1.2.9 GContracts is in a state that isn't "just" introduce assert statements into code.
+
+<h3>Performance, Performance, Performance</h3>
+
+Let me come back to introducing the precondition to our <tt>Calculator</tt> example. Running the calculator with the precondition enabled results in <b>200 ms</b> execution time. That's quite a heavy load compared to the <b>8 ms</b> it took without <tt>@Requires</tt>. On the other hand-side, its far away from being a total fail. The <tt>Calculator#main(args)</tt> method calls the Fibonacci calculation 200.000 times, meaning that value tracking assertion tracking and error tracking do take less than 1 ms per 1000 iterations.
+
+If we replace <tt>@Requires</tt> with a Groovy power assertion statement the code takes <b>50 ms</b>.
+
+{% highlight groovy %} 
+import org.gcontracts.annotations.*
+
+class Calculator {
+
+    long fib(long limit)  {
+        assert limit >= 2
+        // ...
+    }
+}
+
+ {% endhighlight %}
+
+Further performance measurement has shown that the addition of assertion tracking and violation error tracking adds about 140 ms to the precondition check. <tt>ViolationTracker</tt> and <tt>ContractExecutionTracker</tt> are already small and performance-optimized classes, so there wasn't much room for performance improvement at this side.
+
+As I've noted before, assertion and violation error tracking has been introduced to detect issues in combination with circling assertions or assertions in class hierarchies. 
+
+<em>The thing is, the burden these features have on the execution time only make sense if class hierarchies and more complex assertions are involved.</em> 
+
+Assertion and violation error tracking is only needed in the case of more complex assertions and class hierarchies. The projects where I've seen GContracts applied did not use its ability to inherit assertions and most of the time the contract checks were simple boolean expressions that most of the time didn't even call other instance methods.
+
+<h3>Inline Mode</h3>
+
+On top of that consideration, I started to implement a so-called "inline mode" in GContracts. Inline mode is a special mode embedding assertion statements directly  into the code (as this was the straight-forward approach of the early days). This mode is not triggered for descendant classes and for assertions with either (static) method or constructor calls. 
+
+Running the calculator example with <tt>GContracts 1.2.10-SNAPSHOT</tt> results in the following AST view:
+
+<a href="http://blog.andresteingress.com/wp-content/uploads/2012/10/screen2.png"><img src="http://blog.andresteingress.com/wp-content/uploads/2012/10/screen2.png" alt="" title="GContracts AST Browser Output (2)" width="783" height="313" class="aligncenter size-full wp-image-2169" /></a>
+
+The classes generated from the specified closure expressions are present. This code is still needed for future descendant classes, but the actual precondition check is done "inline" with a simple assertion statement. 
+
+{% highlight groovy %} 
+
+if ( $GCONTRACTS_ENABLED ) {
+    if (!( limit >= 3)) {
+        try {
+            assert limit >= 3 : null
+            ...
+ {% endhighlight %}
+
+There is another optimization that can be applied in the case of GContracts. As GContracts enforces usage of side-effect free functions in assertions, the (negated) boolean expression is evaluated beforehand in the <tt>if</tt> statement. This trick allows to avoid the <tt>assert</tt> statement execution as long as the boolean expression is <tt>true</tt>. Only if the expression is <tt>false</tt>, Groovy's <tt>ValueRecorder</tt> and other power assertion related code is executed. 
+
+Running the above calculation with the inlined preconditions of <tt>GContracts 1.2.10-SNAPSHOT</tt> results in the execution time of <b>8 ms</b>. Compared to the 200 ms with GContracts 1.2.9, this is a significant performance improvement and as fast as assertion enabled code can be in this case. Of course, the performance heavily depends on the boolean expression that is executed within the <tt>if</tt> statement's boolean expression. But on the other hand, checking for assertions requires at least executing that expression - it is as fast as it can get with assertion checking enabled.
+
+<h3>Conclusion</h3>
+
+This article should share some knowledge about the performance tweaks being introduced in the next version of GContracts. Projects will benefit with greatly improved performance for a vast majority of use-cases (and even with better performance in the not so common ones ;-)) - and this even in "hot" code places.
+
+<br><br><div>[0] <a href="http://www.gcontracts.org">GContracts - Programming by Contract for Groovy</a> </div>
+<div>[1] <a href="http://groovy.codehaus.org/Groovy+Console">Groovy AST Browser</a></div>
+

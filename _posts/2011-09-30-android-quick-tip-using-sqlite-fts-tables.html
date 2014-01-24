@@ -1,0 +1,159 @@
+---
+layout: post
+title: 'Android Quick Tip: Using SQLite FTS Tables'
+categories:
+- android
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _wp_old_slug: ''
+  _syntaxhighlighter_encoded: '1'
+  _edit_last: '2'
+  _edit_lock: '1317377258'
+---
+Some time ago I had to implement an Android dictionary application for one of my customers. Of course that dictionary application's main feature was supposed to be its search capability. Using SQL "LIKE" queries was not an option as the dictionary data set was pretty big and had to provide full-text searches not even for words but also for their textual descriptions.
+
+As a consequence, I had to do some research on full-text search capabilities in Android. While reading through the dev guide on search dialogs, a sentence triggered my attention [<a href="http://developer.android.com/guide/topics/search/search-dialog.html">0</a>]:
+
+<blockquote>If your data is stored in a SQLite database on the device, performing a full-text search (using FTS3, rather than a LIKE query) can provide a more robust search across text data and can produce results significantly faster.</blockquote>
+
+FTS3? That sounded interesting and I did some research into that direction.
+
+<h3>The FTS3 SQLite Extension</h3>
+
+FTS is the acronym for "full-text search". FTS3 itself is an SQLite extension that is now part of SQLite that provides support for creating virtual tables which in fact maintain an inverted index for full-text searches. That means you can use FTS tables to enable full-text search in Android applications.
+
+Let us see how this was done in the dictionary application. The <tt>DatabaseOpenHelper</tt> class extended <tt>SQLiteOpenHelper</tt> and created (among others) a virtual table.
+
+{% highlight java %} 
+public class DatabaseOpenHelper extends SQLiteOpenHelper {
+
+	private static final int DATABASE_VERSION = 1;
+
+	public static final String TABLE_WORDS = "WORDS";
+	public static final String TABLE_WORDS_FTS = "WORDS_FTS";
+        // ...
+
+	public static final String COL_ID = BaseColumns._ID;
+
+	public static final String COL_KEY_LABEL = "LABEL";
+	public static final String COL_KEY_DESCRIPTION = "DESCRIPTION";
+	public static final String COL_KEY_LANGUAGE = "LANGUAGE";
+
+	public static final String COL_KEY_CODE = "CODE";
+	public static final String COL_KEY_NAME = "NAME";
+
+	public static final String COL_KEY_TERM = "TERM";
+	public static final String COL_KEY_LINKED_TERM = "LINKED_TERM";
+
+	public static final String COL_ACC_TIME = "ACC_TIME";
+	public static final String COL_ACC_DATE = "ACC_DATE";
+	public static final String COL_TERM_ID = "WORD_ID";
+	public static final String COL_ICON_ID = "ICON_ID";
+
+	public DatabaseOpenHelper(final Context context) {
+		super(context, ApplicationConstants.DATABASE_NAME, null, DATABASE_VERSION);
+	}
+
+	@Override
+	public void onCreate(final SQLiteDatabase db) {
+		executeDDL(db);
+	}
+
+	@Override
+	public void onUpgrade(final SQLiteDatabase db, final int oldVersion, final int newVersion) {
+		dropIfExists(db);
+		onCreate(db);
+	}
+
+	private void dropIfExists(final SQLiteDatabase db) {
+		db.execSQL("DROP TABLE IF EXISTS " + TABLE_WORDS);
+		db.execSQL("DROP TABLE IF EXISTS " + TABLE_WORDS_FTS);
+		// ...
+	}
+
+	private void executeDDL(final SQLiteDatabase db) {
+		Log.d("Database", "Updating dictionary db ...");
+		db.execSQL("CREATE TABLE " + TABLE_WORDS + "(" + COL_ID + " INTEGER PRIMARY KEY AUTOINCREMENT, "
+				+ COL_KEY_LABEL + " VARCHAR(128), " + COL_KEY_DESCRIPTION + " TEXT, " + COL_KEY_LANGUAGE + " INTEGER, "
+				+ COL_KEY_TERM + " INTEGER " + ");");
+
+		db.execSQL("CREATE INDEX IF NOT EXISTS IDX_WORDS_TERM ON " + TABLE_WORDS + " (" + COL_KEY_TERM + ")");
+		db.execSQL("CREATE INDEX IF NOT EXISTS IDX_WORDS_LANGUAGE ON " + TABLE_WORDS + " (" + COL_KEY_LANGUAGE + ")");
+
+		db.execSQL("CREATE VIRTUAL TABLE " + TABLE_WORDS_FTS + " USING fts3(" + COL_ID + ", " + COL_KEY_LABEL + ", "
+				+ COL_KEY_DESCRIPTION + " , " + COL_KEY_LANGUAGE + ", " + COL_KEY_TERM + " " + ");");
+
+	}
+}
+ {% endhighlight %}
+
+The statement 
+
+{% highlight java %} 
+db.execSQL("CREATE VIRTUAL TABLE " + TABLE_WORDS_FTS + " USING fts3(" + COL_ID + ", " + COL_KEY_LABEL + ", " + COL_KEY_DESCRIPTION + " , " + COL_KEY_LANGUAGE + ", " + COL_KEY_TERM + " " + ");");
+ {% endhighlight %}
+
+creates a virtual table using the FTS3 extension. The table can be filled and updated with the usual SQL commands but uses an inverted index for fast full-text searches underneath.
+
+The interesting part is the query syntax. FTS3 tables are queried using the <tt>MATCH</tt> keyword.
+
+{% highlight java %} 
+public class DictionaryRepository {
+
+   // ...
+   public Cursor queryFulltextTermsForLanguage(String query, final Long languageId) {
+        assert !TextUtils.isEmpty(query) : "query must not be an empty string!";
+        assert languageId >= 0: "LanguageId must be greater or equal than 0";
+
+        return database.query(DatabaseOpenHelper.TABLE_WORDS_FTS,
+                new String[] { DatabaseOpenHelper.COL_KEY_TERM, DatabaseOpenHelper.COL_KEY_LABEL, DatabaseOpenHelper.COL_KEY_LANGUAGE, DatabaseOpenHelper.COL_ID },
+                DatabaseOpenHelper.TABLE_WORDS_FTS + " MATCH ?",
+                new String[] { appendWildcard(query) + " " + DatabaseOpenHelper.COL_KEY_LANGUAGE + ": " + languageId.toString() },
+                null, null, null);
+    }
+
+    private String appendWildcard(String query) {
+        if (TextUtils.isEmpty(query)) return query;
+
+        final StringBuilder builder = new StringBuilder();
+        final String[] splits = TextUtils.split(query, " ");
+
+        for (String split : splits)
+          builder.append(split).append("*").append(" ");
+
+        return builder.toString().trim();
+    }
+    // ...
+}
+ {% endhighlight %}
+
+As can be seen from the example above, the FTS3 supports not even unqualified queries like
+
+[sourcecode language="Sql"]
+SELECT * FROM words_fts WHERE words_fts MATCH 'company';
+[/sourcecode]
+
+but also qualified queries identifying the query columns by <tt>column: columnName</tt>
+
+[sourcecode language="Sql"]
+SELECT * FROM words_fts WHERE words_fts MATCH 'description: company';
+[/sourcecode]
+
+and the <tt>*</tt> operator
+
+[sourcecode language="Sql"]
+SELECT * FROM words_fts WHERE words_fts MATCH 'description: comp*';
+[/sourcecode]
+
+A complete guide on FTS full-text queries can be found at [<a href="http://www.SQLite.org/fts3.html#section_3">2</a>].
+
+<br><br><div>[0] <a href="http://developer.android.com/guide/topics/search/search-dialog.html">Creating a Search Interface - Android Developer</a> </div>
+<div>[1] <a href="http://www.SQLite.org/fts3.html#section_1">Introduction to FTS3 and FTS4</a></div>
+<div>[2] <a href="http://www.SQLite.org/fts3.html#section_3">FTS3 Full-Text Index Queries</a></div>
+
+<a class="FlattrButton" style="display:none;" rev="flattr;button:compact;" href="http://blog.andresteingress.com/2011/09/30/android-quick-tip-using-SQLite-fts-tables/"></a>
+<noscript><a href="http://flattr.com/thing/407839/Android-Quick-Tip-Using-SQLite-FTS-Tables" target="_blank">
+<img src="http://api.flattr.com/button/flattr-badge-large.png" alt="Flattr this" title="Flattr this" border="0" /></a></noscript>

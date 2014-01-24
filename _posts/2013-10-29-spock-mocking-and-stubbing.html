@@ -1,0 +1,172 @@
+---
+layout: post
+title: Spock - Mocking and Stubbing
+categories:
+- ast transformations
+- groovy
+- spock
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _edit_last: '2'
+  _edit_lock: '1386862688'
+  _syntaxhighlighter_encoded: '1'
+  _wp_old_slug: ''
+---
+Spock [<a href="http://code.google.com/p/spock/">0</a>] is a testing and specification library for Groovy and Java projects. Just recently I figured that quite a large number of Grails and Groovy developers I know are not aware of another really cool Spock feature: <strong>Mocking and Stubbing</strong>.
+
+<h3>Mocking with Spock</h3>
+
+A mock is an object of a certain type but without any behavior. Instead, the expected behavior is specified by the developer writing the specification. There is a large number of mocking libraries in the Java space, in my past Java projects I used EasyMock [<a href="http://easymock.org/">1</a>] quite frequently. The Spock developers made the decision to write their own mocking functionality being tightly integrated into the Spock library and using some of the Groovy language features that make code easier to read and maintain.
+
+Enough said, let's see mocking in action. We have a class <tt>ItemProcessor</tt>. The <tt>ItemProcess</tt> processes and saves items. For saving the items, it has a dependency on another class: <tt>ItemRepository</tt>.
+
+{% highlight java %} 
+
+class ItemProcessor {
+  void process(List<Long> itemIds) { /* ... */ }
+}
+
+class ItemRepository {
+  void save(List<Item> items) { /* ... */ }
+}
+ {% endhighlight %}
+
+Now we have to write a specification for our <tt>ItemProcessor</tt> that ensures the items are saved via the <tt>ItemRepository</tt>. The Spock specification looks like this:
+
+{% highlight java %} 
+class ItemProcessorSpec extends Specification {
+
+  ItemProcessor processor = new ItemProcessor()
+
+  def "processed items have to be saved"() { 
+
+    when: "the processor is given a bunch of item IDs"
+      processor.process([42l, 1l, 3l])
+
+    then: "the item instances must be saved"
+      // TBC
+   }
+}
+ {% endhighlight %}
+
+Mocks created by Spock are lenient by default. In other words: calls on mock methods which haven't been mocked return default values from their return types instead of throwing an error.
+
+The way to create mocks in Spock is by using the <tt>Mock()</tt> method. The method does not come with any required parameters, although some variations of <tt>Mock()</tt> are available. In order to have the generic type information of the <tt>Mock</tt> return type, we will use the <tt>Mock(Class)</tt> interface for our example. Please note that <tt>ItemRepository</tt> is a concrete class, Spock allows mocking for interfaces and concrete classes, let it be Groovy or Java (!) classes.
+
+{% highlight java %} 
+class ItemProcessorSpec extends Specification {
+
+  ItemProcessor processor
+  ItemRepository repository
+
+  def setup() {
+    processor = new ItemProcessor()
+    repository = Mock(ItemRepository)
+  }
+  // ...
+}
+ {% endhighlight %}
+
+Now comes the really cool part. We have to specify how many times we expect our <tt>save</tt> method from the repository to be called. This can be done with using a special Spock mocking DSL:
+
+{% highlight java %} 
+
+def "processed items have to be saved"() { 
+
+  when: "the processor is given a bunch of item IDs"
+    processor.process([42l, 1l, 3l])
+
+  then: "the item instances must be saved"
+    1 * repository.save(_)
+}
+ {% endhighlight %}
+
+As can be seen in the code example above, the DSL expressions holds the cardinality (1 *), the target constraint (repository), the method constraint (save) and an argument constraint (_). The code uses the underscore as argument constraint. The underscore has a special semantic, it acts as "any" operator and can also be used for the other constraints. The mock spec above can be read as: "execute repository.save a single time no matter what in put arguments are given".
+
+But we could use a true argument constraint either:
+
+{% highlight java %} 
+
+def "processed items have to be saved"() { 
+
+  when: "the processor is given a bunch of item IDs"
+    processor.process([42l, 1l, 3l])
+
+  then: "the item instances must be saved"
+    1 * repository.save([new Item(id: 42l), new Item(id: 1l), new Item(id: 3l)])
+}
+ {% endhighlight %}
+
+This restricts the mock to exactly that list of <tt>Item</tt> instances. 
+
+The Spock documentation [<a href="http://docs.spockframework.org/en/latest/interaction_based_testing.html">2</a>] shows more examples for valid mock expressions:
+
+{% highlight java %} 
+1 * subscriber.receive("hello")     // an argument that is equal to the String "hello"
+1 * subscriber.receive(!"hello")    // an argument that is unequal to the String "hello"
+1 * subscriber.receive()            // the empty argument list (would never match in our example)
+1 * subscriber.receive(_)           // any single argument (including null)
+1 * subscriber.receive(*_)          // any argument list (including the empty argument list)
+1 * subscriber.receive(!null)       // any non-null argument
+1 * subscriber.receive(_ as String) // any non-null argument that is-a String
+1 * subscriber.receive({ it.size() > 3 }) // an argument that satisfies the given predicate
+                                          // (here: message length is greater than 3)
+ {% endhighlight %}
+
+<h3>Stubbing with Spock</h3>
+
+Now we want to do some stubbing. For this case, let's assume the <tt>save</tt> method in the <tt>ItemRepository</tt> is rewritten to return the newly saved <tt>Item</tt>s. We have to change our test-case to return a list of saved <tt>Item</tt> instances.
+
+{% highlight java %} 
+def "processed items have to be saved"() { 
+
+  when: "the processor is given a bunch of item IDs"
+    processor.process([42l, 1l, 3l])
+
+  then: "the item instances must be saved"
+    1 * repository.save([new Item(id: 42l), new Item(id: 1l), new Item(id: 3l)]) >> 
+       [new Item(id: 42l), new Item(id: 1l), new Item(id: 3l)]
+}
+ {% endhighlight %}
+
+As you can see above, the right-shift operator is used to return a fixed value. If we would have used to underscore we could use the triple-right-shift operator for subsequent return values:
+
+{% highlight java %} 
+def "processed items have to be saved"() { 
+
+  when: "the processor is given a bunch of item IDs"
+    processor.process([42l, 1l, 3l])
+
+  then: "the item instances must be saved"
+    1 * repository.save(_) >>> [[new Item(id: 42l), new Item(id: 1l), new Item(id: 3l)], []]
+}
+ {% endhighlight %}
+
+We could also use the "computed" return value feature to deduce the return value from the arguments to the method call which are available in the <tt>args</tt> variable:
+
+{% highlight java %} 
+def "processed items have to be saved"() { 
+
+  when: "the processor is given a bunch of item IDs"
+    processor.process([42l, 1l, 3l])
+
+  then: "the item instances must be saved"
+    1 * repository.save(_) >> { args -> args[0] }
+}
+ {% endhighlight %}
+
+<h3>Spying with Spock</h3>
+
+Spies stub specific methods from otherwise concrete classes leaving the original methods as-is. In other words, that non-stubbed methods are delegated to a real object the stubbed methods overshadow the real methods. More on spies can be found in the Spock documentation [<a href="http://spock-framework.readthedocs.org/en/latest/interaction_based_testing.html#other-kinds-of-mock-objects-new-in-0-7">3</a>].
+
+<h3>Conclusion</h3>
+
+This article should have given you a small pointer on what is possible with Spock's mocking and stubbing features. It is a really nice and mighty feature people new to Spock might not be aware of.
+
+<br><br><div>[0] <a href="http://code.google.com/p/spock/">Spock - The Enterprise Ready Testing Framework</a></div>
+<div>[1] <a href="http://easymock.org/">EasyMock - Java Mocking Library</a></div>
+<div>[2] <a href="http://docs.spockframework.org/en/latest/interaction_based_testing.html">Spock - Interaction-Based Testing</a></div>
+<div>[3] <a href="http://spock-framework.readthedocs.org/en/latest/interaction_based_testing.html#other-kinds-of-mock-objects-new-in-0-7">Spock Documentation - Other Kinds of Mock Objects</a></div>

@@ -1,0 +1,26 @@
+# Dependencies
+markdown:         redcarpet
+pygments:         true
+
+# Permalinks
+permalink:        pretty
+
+# Setup
+title:            Blog
+tagline:          'Groovy, Grails, Java, Stuff. Mostly.'
+description:      'Andre Steingress'
+url:              http://blog.andresteingress.com
+
+author:
+  name:           'Andre Steingress'
+  url:            https://twitter.com/asteingr
+
+paginate:         5
+
+# Custom vars
+version:          0.4.2.beta
+
+github:
+  repo:           https://github.com/andresteingress
+
+encoding:         utf-8

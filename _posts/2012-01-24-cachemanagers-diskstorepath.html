@@ -1,0 +1,146 @@
+---
+layout: post
+title: CacheManager's diskStorePath
+categories:
+- grails
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _syntaxhighlighter_encoded: '1'
+  _edit_lock: '1327388870'
+  _edit_last: '2'
+---
+Lately I had to configure the Ehcache [<a href="http://ehcache.org/">0</a>] CacheManager's <tt>diskStorePath</tt> property. That alone wouldn't be a problem, but I had to come up with a mechanism that allowed to set the diskStorePath based on customer-specific configuration settings. As I couldn't find proper instructions on the web or on stackoverflow, I thought it would be worth sharing the outcome.
+
+<h3>The problem</h3>
+
+The Grails plugin collective (GPC) offers the so-called "Spring-Cache Plugin" [<a href="http://grails.org/plugin/springcache">1</a>], a great plugin by Robert Fletcher. The plugin comes with a <tt>@Cacheable</tt> annotation. Whenever a type, method or field is annotated as "cacheable" the result is put into a Ehcache instance and further calls might return a cached result (depending on the cache settings).
+
+Let's start with the default settings. The default Ehcache cache setting look like this (extracted from <tt>ehcache-failsafe.xml</tt>):
+
+{% highlight xml %} 
+<defaultCache
+            maxElementsInMemory="10000"
+            eternal="false"
+            timeToIdleSeconds="120"
+            timeToLiveSeconds="120"
+            overflowToDisk="true"
+            maxElementsOnDisk="10000000"
+            diskPersistent="false"
+            diskExpiryThreadIntervalSeconds="120"
+            memoryStoreEvictionPolicy="LRU"
+            />
+ {% endhighlight %}
+
+The attribute <tt>overflowToDisk</tt> is true, meaning that whenever the maximum number of in-memory objects is reached, objects are swapped to disk. However, <tt>diskPersistent</tt> is false, meaning that between subsequent server/application restarts, the in-memory cache is lost and all swapped objects will be cleaned on startup.
+
+Our requirement was to activate disk persistency and configure a <tt>diskStorePath</tt>, based on a given customer configuration. The customer configuration diskStore directory path would be based on the build settings, ie. a custom Config.groovy file.
+
+Specifying a custom <tt>diskStorePath</tt> would be done in a custom <tt>ehcache.xml</tt> file like this:
+
+{% highlight xml %} 
+<diskStore path="here comes the customer-specific directory"/>
+ {% endhighlight %} 
+
+<h3>Setting the diskStorePath</h3>
+
+The Springcache plugin works with Spring's <tt>EhCacheManagerFactoryBean</tt> and <tt>EhCacheFactoryBean</tt>. Given the following configuration in <tt>Config.groovy</tt> ...
+
+{% highlight groovy %} 
+springcache.enabled = true
+
+springcache {
+    defaults {
+        // set default cache properties that will apply to all caches that do not override them
+        eternal = false
+        diskPersistent = true
+        maxElementsInMemory = 1000
+        maxElementsOnDisk = 10000
+
+//        24 hours
+        timeToIdle = 86400
+        timeToLive = 86400
+
+        overflowToDisk = true
+        memoryStoreEvictionPolicy = "LRU"
+    }
+
+    caches {
+        myCache {
+            // set any properties unique to this cache
+        }
+        // more caches follow ...
+}
+ {% endhighlight %}
+
+... the plugin will create one or multiple <tt>EhCacheFactoryBean</tt> instances, by iterating over <tt>springcache.defaults</tt>.
+
+{% highlight groovy %} 
+    springcacheDefaultCache(EhCacheFactoryBean) { bean ->
+        bean."abstract" = true
+        cacheManager = ref("springcacheCacheManager")
+        application.config.springcache.defaults.each {
+            bean.setPropertyValue it.key, it.value
+        }
+    }
+
+    application.config.springcache.caches.each {String name, ConfigObject cacheConfig ->
+        "$name"(EhCacheFactoryBean) {bean ->
+            bean.parent = springcacheDefaultCache
+            cacheName = name
+            cacheConfig.each {
+                bean.setPropertyValue it.key, it.value
+            }
+        }
+    }
+ {% endhighlight %}
+
+The <tt>diskStorePath</tt> is actually held by Ehcache's <tt>CacheManager</tt>. It is a singleton managing the default cache and all the other cache instances. Bad news is that <tt>EhcacheManagerFactoryBean</tt> does not provide a way to define a <tt>diskStorePath</tt> [<a href="https://jira.springsource.org/browse/SPR-5076">2</a>]. The only way to configure a custom path is to reference a custom <tt>ehcache.xml</tt> configuration:
+
+{% highlight java %} 
+public class EhCacheManagerFactoryBean {   
+    // ...
+    public void setConfigLocation(org.springframework.core.io.Resource configLocation)
+}
+ {% endhighlight %}
+
+As we have multiple customers and therefore potentially multiple diskStore paths and wanted to control the path through the customer-specific <tt>Config.groovy</tt>, we had to find a way to dynamically generate a temporary <tt>ehcache.xml</tt>.
+
+As it turns out, with Groovy's XML support this is a pretty straight-forward process in <tt>resources.groovy</tt>:
+
+{% highlight groovy %} 
+springcacheCacheManager(EhCacheManagerFactoryBean) {
+         // ... set other props
+
+        def writer = new StringWriter()
+        def xml = new MarkupBuilder(writer)
+
+        xml.ehcache() {
+          diskStore(path: config.app.cache.diskStorePath ?: 'java.io.tmpdir/springcache')
+          defaultCache(config.springcache.defaults)
+        }
+
+        def ehCacheXmlTempFile   = File.createTempFile("ehcache-springcache", ".xml")
+        ehCacheXmlTempFile.setText(writer.toString())
+
+        // set the spring bean property
+        configLocation = new FileSystemResource(ehCacheXmlTempFile)
+}
+ {% endhighlight %}
+
+As you can see from the code snippet above, <tt>XmlSlurper</tt> is used to slurp a ehcache.xml configuration template, without any predefined settings. As the Springcache plugin has already been configured in <tt>Config.groovy</tt>, it 'synchronizes' those settings and injects all properties into the slurped DOM. The best thing is that <tt>diskStorePath</tt> can be set accordingly to the current configuration setting in <tt>config.app.cache.diskStorePath</tt>, defaulting to the default temporary directory. Last, <tt>StreamingMarkupBuilder</tt> is used to write the resulting XML to a newly created temporary file.
+
+<h3>Conclusion</h3>
+
+This article shows how using a dynamic programming language for bean definitions is just awesome and how Groovy's excellent XML support can be used in places XML gurus only can dream of.
+
+<br><br><div>[0] <a href="http://ehcache.org/">Ehcache - http://ehcache.org/</a></div>
+<div>[1] <a href="http://grails.org/plugin/springcache">Grails Springcache Plugin</a></div>
+<div>[2] <a href="https://jira.springsource.org/browse/SPR-5076">Spring JIRA - [EhCacheFactoryBean] diskStorePath property has no effect</a></div>
+
+<a class="FlattrButton" style="display:none;" href="http://blog.andresteingress.com/2012/01/24/cachemanagers-diskstorepath"></a>
+<noscript><a href="http://flattr.com/thing/469975/CacheManagers-DiskStorePath" target="_blank">
+<img src="http://api.flattr.com/button/flattr-badge-large.png" alt="Flattr this" title="Flattr this" border="0" /></a></noscript>

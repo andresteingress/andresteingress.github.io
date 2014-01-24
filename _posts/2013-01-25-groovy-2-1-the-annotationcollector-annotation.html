@@ -1,0 +1,84 @@
+---
+layout: post
+title: 'Groovy 2.1: The @AnnotationCollector Annotation'
+categories:
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _edit_last: '2'
+  _syntaxhighlighter_encoded: '1'
+  _edit_lock: '1359103293'
+  _wp_old_slug: ''
+---
+Groovy 2.1 comes with another cool addition to the <tt>groovy.transform</tt> AST package: the <tt>@AnnotationCollector</tt> [<a href="http://jira.codehaus.org/browse/GROOVY-5821">0</a>].
+
+<h3>X Annotations -> 1 Annotation</h3>
+
+The use case for the annotation collector is simple: we want to define a meta-annotation that includes a handful of other annotations. By the way, it's not just "other annotations" but we also want to include AST transformation annotations like <tt>@ToString</tt>, <tt>@EqualsAndHashCode</tt>, <tt>@Immutable</tt> etc. (for an introduction to Groovy's AST transformation annotations, you might want to start here [<a href="http://groovy.codehaus.org/Compile-time+Metaprogramming+-+AST+Transformations">1</a>]).
+
+Let's say we have the use case to apply <tt>@ToString</tt> and <tt>@Immutable</tt> to several classes in our project. With Groovy 2.1 we can use <tt>@AnnotationCollector</tt> to avoid code duplication and create a single annotation alias:
+
+{% highlight groovy %} 
+@AnnotationCollector([ToString, Immutable])
+@interface ValueObject {}
+ {% endhighlight %}
+
+Our self-defined <tt>@ValueObject</tt> can now be applied on Groovy classes:
+
+{% highlight groovy %} 
+@ValueObject
+class UpperLimit {}
+ {% endhighlight %}
+
+What happens during compile-time is, the <tt>@ValueObject</tt> is detected to be an <tt>@AnnotationCollector</tt> annotation, thus it is replaced by its meta annotations:
+
+{% highlight groovy %} 
+@ValueObject
+class UpperLimit {}
+ {% endhighlight %}
+
+becomes
+
+{% highlight groovy %} 
+@ToString
+@Immutable
+class UpperLimit {}
+ {% endhighlight %}
+
+One last thing: <tt>@AnnotationCollector</tt> provides a way to specify annotation type element values. For example, the <tt>@ToString</tt> annotation comes with various attributes to configure the <tt>toString()</tt> output:
+
+{% highlight groovy %} 
+public @interface ToString {
+    
+    String[] excludes() default {};
+    // ...
+    String[] includes() default {};
+    // ...
+}
+ {% endhighlight %}
+
+Let's say we want to ignore all <tt>id</tt> properties on our value objects. Although our <tt>@ValueObject</tt> has no attributes defined, we can ignore that fact as the <tt>@AnnotationCollector</tt> AST transformation modifies the custom annotation accordingly:
+
+{% highlight groovy %} 
+@ValueObject(excludes = ['id'])
+class UpperLimit {}
+ {% endhighlight %}
+
+One special case is when multiple annotation elements have different types and the same names, or just the same names. If they have different types, compilation will fail. Otherwise, the last annotation collect by <tt>@AnnotationCollector</tt> will deemed as appropriate while others being ignored.
+
+<h3>Advanced Features</h3>
+
+<tt>@AnnotatioCollector</tt> even supports adding custom AST transformation code by specifying its <tt>processor</tt> annotation element. A custom annotation collector must inherit from <tt>org.codehaus.groovy.transform.AnnotationCollectorTransform</tt> and override the <tt>visit()</tt> method.
+
+A complete example by Guillaume Laforge can be found at Github [<a href="https://gist.github.com/4563430">2</a>].
+
+<h3>Conclusion</h3>
+
+The new <tt>@AnnotationCollector</tt> annotation can be used to group several (AST xform) annotations to a single annotation. Further, its functionality can be extended by custom AST transformation code.
+
+<br><br><div>[0] <a href="http://jira.codehaus.org/browse/GROOVY-5821">GROOVY-5821: Provide a way to assemble an annoation consisting of several other</a></div>
+<div>[1] <a href="http://groovy.codehaus.org/Compile-time+Metaprogramming+-+AST+Transformations">Compile-time Metaprogramming - AST Transformations</a></div>
+<div>[2] <a href="https://gist.github.com/4563430">Github AnnotationCollectorTransform Example by Guillaume Laforge</a></div>

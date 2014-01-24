@@ -1,0 +1,173 @@
+---
+layout: post
+title: gcontracts 1.0 released
+categories:
+- gcontracts
+- groovy
+- releases
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_post_language: ''
+  _flattr_post_category: ''
+  _flattr_post_hidden: ''
+  _flattr_btn_disabled: ''
+  _edit_last: '13220543'
+  _edit_lock: '1271915499'
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1293719904";}";
+---
+I am happy to tell you that gcontracts version 1.0 has just been released and <a href="http://github.com/andresteingress/gcontracts/downloads">is available for download on github</a>, licensed under BSD.
+
+Bugs, enhancements and feature requests should be reported over github's issue tracking system.
+
+<strong>About gcontracts</strong>
+
+As I've already mentioned in <a href="http://andresteingress.wordpress.com/2010/03/27/contract-oriented-programming-with-groovy/">a previous blog-post "Contract-Oriented Programming with Groovy"</a>, I started a github project called <a href="//github.com/andresteingress/gcontracts/"><strong>gcontracts</strong></a> which aims to enable "contract-oriented" programming aka "design by contract" in Groovy. This is done by relying on Groovy's ability to transform the abstract syntax tree (AST) during the compilation process and is mainly based on intelligent injection of  Java assert statements.
+
+If you aren't familiar with contract-oriented programming, I advice to take a look at my blog-post <a href="http://andresteingress.wordpress.com/2010/03/31/contracts-in-the-domain-model/">Contracts in the Domain Model</a> [<a href="http://andresteingress.wordpress.com/2010/03/31/contracts-in-the-domain-model/">0</a>] which explains the principle idea of contracts, assertions and todays role of contract-oriented programming in software development processes.
+
+<blockquote>Be warned, there is still a long way ahead, especially in fields of performance improvements, configurability and more advanced topics like loop invariants, pre- and postcondition inheritance and configurability, although the basic features are tested and working.</blockquote>
+
+<strong>Features</strong>
+
+gcontracts comes with a set of Java annotations whereas each annotation represents a particular assertion type. Each annotation has a single parameter which is used at declaration-time to specify a closure with a boolean expression, representing the assertion on the actual object's state. gcontracts 1.0 comes with the following assertion type annotations:
+<ul>
+	<li>Class-Invariants with <code>@Invariant</code>
+
+In order to specify a class-invariant use the <code>@Invariant</code> annotation e.g.
+{% highlight groovy %} @Invariant({ someProperty.size() > 0 &amp;&amp; anotherProperty == someMethod() }) {% endhighlight %}
+An <code>@Invariant</code> annotation's closure has access to:
+<table>
+<tbody>
+<tr>
+<td>instance variables</td>
+<td>instance variables of any scope</td>
+</tr>
+<tr>
+<td>methods</td>
+<td>methods of any access scope (although it is recommended to use public methods only)</td>
+</tr>
+<tr>
+<td>static fields</td>
+<td>static fields of any access scope</td>
+</tr>
+<tr>
+<td>static methods</td>
+<td>static methods of any access scope</td>
+</tr>
+</tbody>
+</table>
+</li>
+	<li>Preconditions with <code>@Requires</code>
+
+In order to specify preconditions on methods, use the <code>@Requires</code> annotation e.g.
+{% highlight groovy %} @Requires({ someProperty.size() > 0 &amp;&amp; anotherProperty == someMethod() }) {% endhighlight %}
+A <code>@Requires</code> annotation's closure has access to:
+<table>
+<tbody>
+<tr>
+<td>instance variables</td>
+<td>instance variables of any access scope</td>
+</tr>
+<tr>
+<td>methods</td>
+<td>methods of any access scope (although it is recommended to use public methods only)</td>
+</tr>
+<tr>
+<td>static fields</td>
+<td>static fields of any access scope</td>
+</tr>
+<tr>
+<td>static methods</td>
+<td>static methods of any access scope</td>
+</tr>
+<tr>
+<td>arguments</td>
+<td>all arguments of the current method scope</td>
+</tr>
+</tbody>
+</table>
+</li>
+	<li>Postconditions with <code>@Ensures</code>
+
+In order to specify postconditions on methods, use the <code>@Ensures</code> annotation e.g.
+{% highlight groovy %} @Ensures({ someProperty.size() > 0 &amp;&amp; anotherProperty == someMethod() }) {% endhighlight %}
+An <code>@Ensures</code> annotation's closure has access to:
+<table>
+<tbody>
+<tr>
+<td>instance variables</td>
+<td>instance variables of any access scope</td>
+</tr>
+<tr>
+<td>methods</td>
+<td>methods of any access scope (although it is recommended to use public methods only)</td>
+</tr>
+<tr>
+<td>static fields</td>
+<td>static fields of any access scope</td>
+</tr>
+<tr>
+<td>static methods</td>
+<td>static methods of any access scope</td>
+</tr>
+<tr>
+<td>arguments</td>
+<td>all arguments of the current method scope</td>
+</tr>
+<tr>
+<td>method result</td>
+<td>the method's return value (if not void) is available as closure parameter <code>result</code>. Thus, to access the return value of the current method specify a closure parameter <code>result</code>, e.g.
+{% highlight groovy %} @Ensures({ result -> result >= 0 }) {% endhighlight %}
+</td>
+</tr>
+<tr>
+<td>old attribute values</td>
+<td>a map containing all attribute values before method execution is available as closure parameter <code>old</code>. Thus, to access the value of instance variables before method execution, specify a closure parameter <code>old</code>, e.g.
+{% highlight groovy %} @Ensures({ old -> old.field1 != field1 }) {% endhighlight %}
+
+Of course, the variable map does not contain copies of you domain's entity classes, it works with Java's built-in data types only, e.g. primitive values, reference types like <code>Integer</code>, <code>Boolean</code>, <code>Calendar</code>, <code>Date</code> and so on.
+
+By the way, you can even use both closure parameters in the same closure, e.g.
+{% highlight groovy %} @Ensures({ old, result -> old.field1 != field1 &amp;&amp; result != field1 }) {% endhighlight %} or
+{% highlight groovy %} @Ensures({ result, old -> old.field1 != field1 &amp;&amp; result != field1 }) {% endhighlight %}
+
+</td>
+</tr>
+</tbody>
+</table>
+</li>
+	<li>Class-Invariant Point Cuts
+
+In the case of pre- and postconditions the validation is done either at a method's start or end. In the case of class-invariants, gcontracts injects the invariant's condition at multiple point cuts.If a class contains a class-invariant definition, at run-time the class-invariant is checked at the following pointcuts:
+<ol>
+	<li>at the end of each constructor call</li>
+	<li>at the end of each method call</li>
+	<li>at the beginning of each method call</li>
+</ol>
+</li>
+	<li>Class-Invariant Inheritance
+
+Whenever class A specifies a class-invariant and class B extends A and specifies a class-invariant again, A's class-invariant is said to be inherited to class B's class invariant. In this context inherited means that A's invariant and B's invariant are logically combined with a boolean AND.<img src="http://andresteingress.files.wordpress.com/2010/04/class-invariant-inheritance.png" alt="Class Invariant Inheritance" title="Class Invariant Inheritance" width="234" height="230" class="aligncenter size-full wp-image-390" />gcontracts analyses the class inheritance line and links all class-invariants appearing in there. E.g. in the class inheritance line C - B - A (from bottom to top), C's class-invariant is linked with B and A ( C AND B AND A), B's class-invariant is linked with A's (B AND A).</li>
+</ul>
+<strong>gcontracts &gt; 1.0</strong>
+
+Upcoming features in next versions of gcontracts will include:
+<ul>
+	<li>bug fixes</li>
+	<li>pre- and postcondition inheritance</li>
+	<li>performance tweaking</li>
+	<li>configurability</li>
+</ul>
+<strong>Using gcontracts in your project</strong>
+
+The easiest way of getting a gcontracts.jar is to get it from <a href="http://github.com/andresteingress/gcontracts/downloads">github's download section</a>. In addition, the project's root directory provides a Maven <code>pom.xml</code> for comfortable generation of the gcontracts.jar file. The library itself will be published to a public Maven repository soon.
+
+Once you got a copy of the jar, add it to the project's classpath. This should be enough to let the Groovy compiler detect it and execute it during compilation.
+
+<strong>Hint: </strong>If you decide to pull the repository from github, take care that you can't compile gcontracts and your project in a single compilation pass. This means, you need to ensure that your build process (let it be your IDE, or Ant, or Maven, ...) already has access to a compiled gcontracts.jar!
+
+<br><br><div>[0] <a href="http://andresteingress.wordpress.com/2010/03/31/contracts-in-the-domain-model/">Contracts in the Domain Model</a></div>
+<div>[1] <a href="http://wiki.github.com/andresteingress/gcontracts/">gcontracts wiki on github</a></div>

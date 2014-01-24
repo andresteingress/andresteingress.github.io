@@ -1,0 +1,67 @@
+---
+layout: post
+title: Gr8Conf 2013 - First Conference Day
+categories:
+- gr8conf
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _edit_last: '1'
+  _edit_lock: '1369376790'
+---
+Today the first Gr8Conf [<a href="http://gr8conf.eu/index">0</a>] conference day took place. Gr8Conf is a conference completely dedicated to the Groovy &amp; Grails ecosystem.
+
+<a href="http://blog.andresteingress.com/wp-content/uploads/2013/05/2013-05-23-09.01.26.png"><img class="size-medium wp-image-2575 alignleft" title="Gr8Conf 2013 Opening Speech" src="http://blog.andresteingress.com/wp-content/uploads/2013/05/2013-05-23-09.01.26-300x225.png" alt="" width="300" height="225" /></a>
+
+The conference was opened by Søren Berg Glasius, the founder of Gr8Conf Europe. As this year was the 5th year anniversary, he showed us some important milestones in the history of Gr8Conf.
+
+He closed the opening honoring those attendees who managed to come the 5th year in a row.
+
+The conference could now be started with a keynote by Dr. Venkat Subramaniam, founder of Agile Developer Inc.
+<h3>The rise and fall of empires:
+Lessons for language designers and programmers</h3>
+The keynote wasn't directly dedicated to Groovy or some of its related technologies. Indeed, the talk showed historical patterns that can be projected to some point on the interaction of technologists with technologies and communities. Venkat highlighted the newly gained power of democracy giving not only programmers the chance to participate and influence the development of programming languages and libraries. Right now, the power to change and influent things is mostly only restricted by having Internet access or restrictive access to the Internet.
+
+Another message in the presentation has been that technologists need to be adaptive. It might be feasible to learn one or two programming languages in a programmer's life, but our view would be broader if we're open to change, and therefore open to alternative/other languages, libraries and frameworks from other communities. <a href="http://blog.andresteingress.com/wp-content/uploads/2013/05/2013-05-23-09.17.54.png"><img class="alignright size-medium wp-image-2576" title="Gr8Conf 2013 Keynote" src="http://blog.andresteingress.com/wp-content/uploads/2013/05/2013-05-23-09.17.54-300x225.png" alt="" width="300" height="225" /></a>And: we should be taking care to converting from revolutionaries to resistors. It happens to quite a few to oversee the point and acting as a resistor against changes a large portion of their professional lifes. Being non-participating, fixed on certain opinions and arrogant against other things is the guarantee for stagnation instead of progress.
+
+<h3>Lift-off with Groovy 2.1</h3>
+
+In the next talk, Guillaume Laforge gave us an overall update of the Groovy 2 features. He started with the modularity changes that happend in Groovy 2.0, mentioning the groovy-all Jar and its reduced version. Another interesting point was the introduction of the extension method mechanism. From Groovy 2.0 on, it is possible for developers to register custom extension methods, side by side with the default Groovy extension methods from the GDK.
+
+Another point Groovy 2.0 is covering are the project Coin features (Java 7, changes on literals, multi-catch etc.) [<a href="penjdk.java.net/projects/coin/">1</a>]. It is to mention that as Groovy is running on 1.5 and above, that means you can run Java 7 features in Groovy on JDK 5 as Mr. Haki already showed us some time ago [<a href="http://java.dzone.com/articles/groovy-goodness-using-project">2</a>]. As of Groovy 2.1, the newly introduced &lt;tt&gt;invokeDynamic&lt;/tt&gt; byte code instruction is now fully supported when running on Java 7.
+
+The most important feature of Groovy 2.0 has been static compilation and static type checks. Groovy 2.0 comes with new annotations to annotate code to be "statically compiled" and/or to be "type checked" by the Groovy compiler. Static compilation results on byte-code very close to the Java equivalent. Type checking at least gives compiler errors if the type checking rules aren't met.
+
+Besides the formerly known features, Guillaume presented some upcoming features. First of all, the &lt;tt&gt;DelegatingScript&lt;/tt&gt; base class. It is a new optional base class for Groovy scripts automatically delegating all calls to certain delegate objects (a blog post on that topic will follow once the class has been released).
+
+Groovysh [<a href="http://groovy.codehaus.org/Groovy+Shell">3</a>] also gained some attention in the last months. A new <tt>doc</tt> command has been added and auto-completion support for imports, class names and method names has been added. 
+
+A documentation rewrite, GroovyDoc overhaul, Java 8 support including an Antlr 4 grammar rewrite and a new version of the MOP  have been mentioned as the corner milestones for Groovy 3.0.
+
+<h3>Raspberry Pi à la GroovyFX</h3>
+<a href="http://blog.andresteingress.com/wp-content/uploads/2013/05/2013-05-23-12.21.34.png"><img class="alignleft size-medium wp-image-2578" title="Gr8Conf 2013 - Rasperry Pi" src="http://blog.andresteingress.com/wp-content/uploads/2013/05/2013-05-23-12.21.34-300x225.png" alt="" width="300" height="225" /></a>Stephen Chin from Oracle Inc. in the next session presented how Groovy FX can be executed on the Rasperry Pi [<a href="http://www.raspberrypi.org/">4</a>]. He showed some hardware details and the difference in source code between a Java FX and a Groovy FX implementation, whereas the Groovy FX implementation has made some benefit by the use of Groovy AST transformations [<a href="http://groovy.codehaus.org/Compile-time+Metaprogramming+-+AST+Transformations">5</a>].
+
+<h3>Enterprise Desktop Apps with Groovy FX and OpenDolphin</h3>
+Right after lunch, Dierk König from Canoo gave an introduction to OpenDolphin [<a href="http://open-dolphin.org/dolphin_website/Home.html">6</a>]. A library supporting the communication between a view (a client) and a controller (a server). That alone wouldn't be exicting news, wouldn't the communication be asynchronous and completely "behind the scenes" without a synchronous call in either direction. <a href="http://blog.andresteingress.com/wp-content/uploads/2013/05/2013-05-23-13.10.23.png"><img class="alignright size-medium wp-image-2579" title="Gr8Conf 2013 - OpenDolphin" src="http://blog.andresteingress.com/wp-content/uploads/2013/05/2013-05-23-13.10.23-224x300.png" alt="" width="224" height="300" /></a>It is guaranteed that all commands come in the exact same order they have been sent from the event source. generic model to represent the model. In fact, OpenDolphin ensures that all actions are transparently synchronized between the client and the server, thus leading to a very lean and easy programming model.
+
+The client side isn't restricted to Swing or Java FX or Groovy FX, with OpenDolphin.js web application are supported too and in general, the library does not force the programmer into any integration restrictions. The OpenDolphin mantra is to be as unintrusive and lean as possible, as Dierk showed as in some very interesting demo applications.
+<h3>Road to Grails 3.0</h3>
+Next up, Graeme Rocher gave an overview of the upcoming Grails 2.3 and Grails 3.0 features. The most interesting parts for me were the improved support for REST applications and the increasing number of Groovy AST transformations used by Grails during compile-time.
+<h3>Functional Programming in Groovy</h3>
+Another talk by Dr. Venkat Subramaniam. This has been my favorite talk of the conference day although I knew most of the content. Venkat talked about the differences between imerative and functional programming, the differences between lambdas and closures and the advantages of using function objects and higher order functions. I really liked the talk because it showed the most important functional concepts in a very refreshing, educational but also really funny style.
+<h3>Getting Groovyier with Vert.X</h3>
+The next talk has been about Vert.X and explained the most important concepts and the terminology behind it.
+<h3>Grails Under The Hood</h3>
+The last session of the day was held by Graeme Rocher. "Grails under the Hood" gave some in-depth views into certain places of the Grails application framework. Again, the use of Groovy AST transformations has been very interesting from my point of view. Grame also showed the brand new (introduced at the Gr8Conf HackerGarten) <tt>@Transactional</tt> AST transformation which automatically adds a TransactionTemplate wrapped to annotated methods [<a href="https://github.com/grails/grails-core/commit/016e9141e80381a1aacf54e8d51d7155582b7ec4">7</a>].
+
+<br><br><div>[0] <a href="http://gr8conf.eu/index">Gr8Conf 2013 - Conference</a></div>
+<div>[1] <a href="penjdk.java.net/projects/coin/">Project Coin Overview</a></div>
+<div>[2] <a href="http://java.dzone.com/articles/groovy-goodness-using-project">Mr. Haki Groovy Goodness - Using project Coin features</a></div>
+<div>[3] <a href="http://groovy.codehaus.org/Groovy+Shell">Groovysh - the Groovy shell</a></div>
+<div>[4] <a href="http://www.raspberrypi.org/">Rasperry Pi Homepage</a></div>
+<div>[5] <a href="http://groovy.codehaus.org/Compile-time+Metaprogramming+-+AST+Transformations">Groovy AST Transformations</a></div>
+<div>[6] <a href="http://open-dolphin.org/dolphin_website/Home.html">OpenDolphin</a></div>
+<div>[7] <a href="https://github.com/grails/grails-core/commit/016e9141e80381a1aacf54e8d51d7155582b7ec4">Grails @Transactional AST transformation</a></div>

@@ -1,0 +1,98 @@
+---
+layout: post
+title: 'Groovy Sneak Peak: The DelegatingScript Base Class'
+categories:
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _edit_lock: '1382167077'
+  _edit_last: '2'
+  _syntaxhighlighter_encoded: '1'
+  _wp_old_slug: ''
+---
+As shown by Guillaume Laforge at Gr8Conf 2013 in Copenhagen, Groovy 2.2 will come with a neat feature for writing custom DSL Groovy scripts: the <code>DelegatingScript</code> base class.
+<h3>Groovy Scripts FTW</h3>
+One way to write Groovy code is within so-called "scripts". At runtime, Groovy script code is converted to a <code>Script</code> [<a href="http://groovy.codehaus.org/api/groovy/lang/Script.html">2</a>] descendant class and an instance of that class is created. I nice tool to actually see the generated classes (and even byte-code) is the <tt>groovyConsole's AST browser</tt> bundled amongst other useful programs with the Groovy distribution.
+
+<a href="http://blog.andresteingress.com/wp-content/uploads/2013/04/groovyConsoleScript.png"><img class="aligncenter size-full wp-image-2535" title="groovyConsole Script Class" src="http://blog.andresteingress.com/wp-content/uploads/2013/04/groovyConsoleScript.png" alt="" width="1008" height="630" /></a>
+
+In the AST browser window you see our script class get's a randomly generated name and it is derived from <code>groovy.lang.Script</code>.
+<h3>Changing the Base Class</h3>
+A nice way to further customize custom Groovy scripts is to set a custom base class. A custom base class can be used to provide "global" methods and variables that might be shared within a group of scripts. For example, let's assume we wanted to write a bunch of Robot DSL scripts, we would create a custom base class containing the DSLs variables and functions.
+
+In order to set a custom script base class, we need to create an instance of <code>CompilerConfiguration</code> and run the script with that instance.
+
+{% highlight groovy %} 
+
+CompilerConfiguration cc = new CompilerConfiguration();
+cc.setScriptBaseClass(DelegatingScript.class);
+
+GroovyShell sh = new GroovyShell(cl, new Binding(), cc);
+DelegatingScript script = (DelegatingScript)sh.parse(new File("my.dsl"))
+
+// setting the delegate object here!
+script.setDelegate(new RobotDSL());
+
+script.run();
+ {% endhighlight %}
+
+There are two important lines in the example above. First, a <code>CompilerConfiguration</code> is created to set Groovy's new <code>DelegatingScript</code> as the script's base class. And, using <code>DelegatingScript#setDelegate(Object)</code> the actual delegate object - the object to which all calls are delegated first - is set.
+
+Assuming our <tt>RobotDSL</tt> class looks like this:
+
+{% highlight groovy %} 
+
+class RobotDSL {
+
+    def robot = [:]
+
+    def createRobot(Closure c)  {
+        robot = [:]
+        c.delegate = robot
+        c.resolveStrategy = Closure.DELEGATE_ONLY
+        c()
+
+        robots << robot
+        robot
+    }
+
+    def steps(int number) {
+        new Movement(number)
+    }
+
+    static class Movement {
+        def moveLeft(int steps) {
+            // move the robot to the left
+        }
+
+        def moveRight(int steps) {
+            // move the robot to the right
+        }
+    }
+    // ...
+}
+
+ {% endhighlight %}
+
+we can write the following DSL script code without having to explicitly specify the delegate object:
+
+{% highlight groovy %} 
+
+createRobot {
+    name = 'André'
+}
+
+steps 4 moveLeft
+steps 2 moveRight
+
+ {% endhighlight %}
+
+As can be seen above, <code>DelegatingScript</code> provides a nice way for DSL scripts to remove all DSL setup code to the outside of the script.
+<h3>Conclusion</h3>
+Groovy 2.2 comes with a nice feature to automatically delegate all calls in a script to a dedicated delegate object: the <code>DelegatingScript</code> base class.
+
+<div>[1] <a href="http://mrhaki.blogspot.co.at/2012/10/groovy-goodness-using-groovy-for-git.html">Groovy Goodness, MrHaki: Using Groovy for Git Hooks</a></div>
+<div>[2] <a href="http://groovy.codehaus.org/api/groovy/lang/Script.html">groovy.lang.Script</a></div>

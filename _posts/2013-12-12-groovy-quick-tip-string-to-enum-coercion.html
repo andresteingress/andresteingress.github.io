@@ -1,0 +1,67 @@
+---
+layout: post
+title: 'Groovy Quick Tip: String to Enum Coercion'
+categories:
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _wp_old_slug: ''
+  _edit_last: '2'
+  _edit_lock: '1386863551'
+  _syntaxhighlighter_encoded: '1'
+---
+With all the fuss about the new closure to SAM type coercion in Groovy 2.2 [<a href="http://groovy.codehaus.org/Groovy+2.2+release+notes">0</a>] I was remembered of another neat coercion feature some of my work colleagues seemed not to know about.
+
+<h3>Strings and Enumerations in Groovy</h3>
+
+Since Groovy 1.7.6 the language supports a feature called "String to enum coercion" [<a href="http://jira.codehaus.org/browse/GROOVY-4501">1</a>]. Well, that might say it all, but let's have a look what this means with a small code example:
+
+{% highlight groovy %} 
+
+enum Day {
+    Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday
+}
+
+ {% endhighlight %}
+
+Let's assume we have an enum type called <tt>Day</tt>, resembling an enumeration of all the week days. If we wanted to get the enumeration value for a given string, we would have to do something like that in <em>Java code</em>:
+
+{% highlight java %} 
+
+Day sunday = Day.valueOf("Sunday");
+
+ {% endhighlight %}
+
+Groovy comes with a nicer way of coercing a string to an arbitrary enumeration using the <tt>as</tt> operator:
+
+{% highlight groovy %} 
+Day sunday = "Sunday" as Day
+ {% endhighlight %}
+
+The <tt>as</tt> operator can actually be left aside in this case which leaves us with:
+
+{% highlight groovy %} 
+Day sunday = "Sunday"
+ {% endhighlight %}
+
+Note that this feature not only works for plain <tt>java.lang.String</tt> instances but also for <tt>GString</tt> instances:
+
+{% highlight groovy %} 
+Day sunday = "${ ['Sun', 'day'].join()}"
+ {% endhighlight %}
+
+The coercion also works in the opposite direction, if we wanted a string from our enumeration value we can simply do:
+
+{% highlight groovy %} 
+String day = Day.Sunday
+ {% endhighlight %}
+
+<h3>Conclusion</h3>
+
+The String to enum coercion is especially useful if your are dealing with strings coming for example from HTTP request instances and you need a fast way to retrieve an enumeration value.
+
+<br><br><div>[0] <a href="http://groovy.codehaus.org/Groovy+2.2+release+notes">Groovy 2.2 Release Notes</a></div>
+<div>[1] <a href="http://jira.codehaus.org/browse/GROOVY-4501">GROOVY-4501: String to enum coercion</a></div>

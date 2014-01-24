@@ -1,0 +1,118 @@
+---
+layout: post
+title: GContracts 1.1.3 Released!
+categories:
+- gcontracts
+- groovy
+- releases
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  email_notification: '1289947090'
+  jabber_published: '1289947088'
+  _edit_lock: '1294151974'
+  _edit_last: '13220543'
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1293720062";}";
+  _wp_old_slug: ''
+  _syntaxhighlighter_encoded: '1'
+  _flattr_btn_disabled: ''
+  _flattr_post_hidden: '0'
+  _flattr_post_category: text
+  _flattr_post_language: en_GB
+---
+I am proud to announce that GContracts 1.1.3 has just been released and is available now in the Central Maven repository [<a href="http://repo1.maven.org/maven2/org/gcontracts/gcontracts/1.1.3/">0</a>] and at Github [<a href="http://github.com/andresteingress/gcontracts/downloads">1</a>].
+
+The release includes bug fixes and advanced support Spring bean classes annotated with GContracts' annotations.
+
+<h4>Concrete <code>AssertionError</code> types</h4>
+
+In parallel with <code>@Invariant</code>, <code>@Requires</code> and <code>@Ensures</code> GContracts 1.1.3 provides separate exception types which all are descendants of <code>AssertionError</code> and I guess do not need further explanation:
+
+<code>ClassInvariantViolation</code>, <code>PreconditionViolation</code> and <code>PostconditionViolation</code>.
+
+<h4>Advanced Support for Spring Beans</h4>
+
+One of the problems with GContracts is its lack of compatibility especially with Grails artifact classes, i.e. controllers, services, domain classes etc. This topic has been brought to me a few times and if you just want to apply let's say class invariants on Spring bean classes the Spring application container's initialization lifecycle can quickly become your enemy.
+
+Let's consider the following service:
+
+{% highlight groovy %} 
+@Invariant({ anotherService != null })
+class MyService {
+
+    def anotherService
+
+    static transactional = true
+
+    // ...
+}
+ {% endhighlight %}
+
+<code>MyService</code> is a simple Grails service class, annotated with a class invariant which ensures that the reference to <code>anotherService</code> will never be <code>null</code>, during the entire life-time of the <code>MyService</code> bean. Sadly enough, whenever the Spring application container tries to create a new instance of a <code>MyService</code> bean it fails because GContracts checks the class invariant directly after the object's constructor has completed successfully. By that time, the Spring application container is not yet done with object construction.
+
+From a theoretical perspective throwing a <code>ClassInvariantViolation</code> in this place is completely reasonable since an object's class invariant needs to be fulfilled by the object instance during its entire life-time. But from a practical perspective, this is kind of pain. It means that you have to duplicate the class invariant to all methods in the service class, e.g.
+
+{% highlight groovy %} 
+// avoid invariant checks during construction
+class MyService {
+
+    def anotherService
+
+    static transactional = true
+
+    @Requires({ anotherService != null })
+    def myServiceMethod()  {
+        // ...
+    }
+
+    @Requires({ anotherService != null })
+    def yetAnotherServiceMethod()  {
+        // ...
+    }
+}
+ {% endhighlight %}
+
+It is not that Design by Contract can not be applied here, it is that Spring simply does define its own rules for object creation and destruction, meaning that whenever an object is created with its constructor the initialization process is not done in the case of the Spring application container.
+
+This circumstance confuses programmers who simply want to apply DbC on their bean classes without thinking about Spring initialization mechanisms and GContracts assertion injection.
+
+GContracts 1.1.3 is the starting point for a bunch of features which are targeted to iron out such integration issues with Spring/Grails applications. Of course it might be questionable whether it makes sense to focus primarily on the Spring framework, but that has been a practical decision (GContracts is for Groovy, Grails uses Groovy, Grails uses Spring...). Furthermore, I tried to make the integration as light as possible without actually introducing a classpath dependency on Spring framework classes.
+
+The first feature which comes with 1.1.3 is a solution for the problem described above: class invariant checks on Spring beans. Henceforth, GContracts will not make class invariant checks on Spring beans during constructor calls, but will create a synthetic <code>@PostConstruct</code> method which overtakes the class invariant check. Since GContracts has no mechanism to know that the given class is a Spring-managed class at runtime, programmers need to annotate their artifact classes with appropriate stereotype annotations [<a href="http://static.springsource.org/spring/docs/3.0.x/spring-framework-reference/html/beans.html#beans-classpath-scanning">2</a>], e.g. a service class with <code>@Service</code>, a controller with <code>@Controller</code>, etc.
+
+{% highlight groovy %} 
+@Service
+@Invariant({ anotherService != null })
+class MyService {
+
+    def anotherService
+
+    static transactional = true
+
+    // ...
+}
+ {% endhighlight %}
+
+The <code>@Service</code> stereotype annotation above triggers GContracts' "Spring compliance mode". Whenever the service bean above has been constructed by the Spring application container it will automatically check the class invariant.
+
+The programmer clearly needs to make a compromise in this case, because the class invariant won't be checked after a construction call anymore (e.g. in a test-case where the programmer simply creates an instance of this service class). But this is a consequence of outsourcing object creation to the application container.
+
+<strong>Hint:</strong> GContracts supports the <code>-ea</code>/<code>-da</code> VM parameters [<a href="https://github.com/andresteingress/gcontracts/wiki/VM-Parameters">3</a>] which you can use to deactivate assertion checking during application execution, whereas activating assertion checking only during test-cases.
+
+<h4>Changes</h4>
+
+ISSUE-25: better support for Spring component classes with class invariants
+ISSUE-24: wrong class invariant placement with inherited invariant
+ISSUE-23: @Requires on constructor with super statement causes compilation error
+ISSUE-22: Separate Exception Types for Pre-, Postconditions and Class Invariant
+ISSUE-17: remove direct reference to PowerAssertionError
+
+<br><br><div>[0] <a href="http://repo1.maven.org/maven2/org/gcontracts/gcontracts/1.1.3/">GContracts 1.1.3 in Central Maven Repository</a></div>
+<div>[1] <a href="http://github.com/andresteingress/gcontracts/downloads">GContracts at Github</a></div>
+<div>[2] <a href="http://static.springsource.org/spring/docs/3.0.x/spring-framework-reference/html/beans.html#beans-classpath-scanning">Spring Stereotype Annotations and Classpath Scanning</a></div>
+<div>[3] <a href="https://github.com/andresteingress/gcontracts/wiki/VM-Parameters">GContracts VM Parameter Support</a></div>
+
+<a href="http://flattr.com/thing/84856/GContracts-1-1-3-Released" target="_blank">
+<img src="http://api.flattr.com/button/flattr-badge-large.png" alt="Flattr this" title="Flattr this" border="0" /></a>

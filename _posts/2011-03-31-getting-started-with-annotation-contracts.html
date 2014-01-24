@@ -1,0 +1,58 @@
+---
+layout: post
+title: Getting Started with Annotation Contracts
+categories:
+- gcontracts
+- groovy
+- Intro
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_btn_disabled: ''
+  _flattr_post_hidden: '0'
+  _flattr_post_category: text
+  _flattr_post_language: en_GB
+  _edit_last: '2'
+  _edit_lock: '1363186734'
+  _syntaxhighlighter_encoded: '1'
+  _wp_old_slug: ''
+---
+Annotation Contracts is one of the new features of GContracts 1.2 [<a href="http://blog.andresteingress.com/2011/03/11/gcontracts-1-2-0-released/">0</a>]. The main principle behind is to reuse small but reoccurring parts of pre- and post-condition expressions.
+
+This article is about creating a simple <code>@NotNull</code> annotation contract. <code>@NotNull</code> can be applied on method parameters in order to automatically add null checks to the method's precondition. 
+
+<h3>Let's Get Started</h3>
+
+The first step when creating an annotation contract is to create a custom annotation, in this case <code>@NotNull</code>.
+
+{% highlight groovy %} 
+@Precondition
+@AnnotationContract({ it != null })
+public @interface NotNull {}
+ {% endhighlight %}
+
+Depending on whether the expression should be part of the pre- or post-condition, the author needs to specify <code>@Precondition</code> or <code>@Postcondition</code> (from the <code>org.gcontracts.annotations.meta</code> package).
+
+The expression which is supposed to be added to the precondition is specified with the <code>@AnnotationContract</code> annotation. The <code>@AnnotationContract</code> annotation has a single annotation closure which has to hold a boolean expression. The value of the parameter can be referenced with <code>it</code>.
+
+Note: <code>@Retention</code> and <tt>@Target</tt> are optional. GContracts will inject those meta-annotations if not available in the annotation contract definition. Currently, only <code>ElementType.PARAMETER</code> is supported. 
+
+<h3>How to Apply the Annotation Contract</h3>
+
+Applying the annotation contracts is pretty straight-forward. Just add it to the appropriate parameter(s):
+
+{% highlight groovy %} 
+class Tester {
+    def doSomething(@NotNull param) { println "hello world: ${param}" }
+}
+ {% endhighlight %}
+
+During the compilation process GContracts will inject a newly created precondition for method <code>doSomething</code> that will check parameter <code>param</code>. With a precondition already specified, the null check will be merged into the existing boolean expression by conjunction. 
+
+<h3>Summary</h3>
+
+Annotation contracts are a simple way to reuse micro contracts, i.e. null checks, empty strings checks, range checks etc. GContracts 1.2 provides a neat way to create annotation contracts with the help of annotation closures.
+
+<br><br><div>[0] <a href="http://blog.andresteingress.com/2011/03/11/gcontracts-1-2-0-released/">GContracts 1.2.0 Released!</a></div>

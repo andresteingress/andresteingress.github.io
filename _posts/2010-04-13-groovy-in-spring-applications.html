@@ -1,0 +1,307 @@
+---
+layout: post
+title: Integrating Groovy in Legacy Spring Applications
+categories:
+- groovy
+- spring framework
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_post_language: en_GB
+  _flattr_post_category: text
+  _flattr_post_hidden: '0'
+  _flattr_btn_disabled: ''
+  _edit_lock: '1331677477'
+  _edit_last: '2'
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1293719749";}";
+  _syntaxhighlighter_encoded: '1'
+---
+There are times when you have (or want ;-)) to integrate Groovy in a productive application or, in more complex applications, you just want to realize your application's controller and/or view part (think M-V-C) in a dynamic language, but leave the rest in good-old Spring. Starting with version 2.0, Spring offers support for dynamic languages and comes with support for integrating beans written in Groovy out-of-the-box.
+
+<h4>Dynamic Language Support in the Spring Framework</h4>
+
+Spring's dynamic language support currently supports Groovy, JRuby and BeanShell. The integration layer itself consists of several classes dealing with dynamic class loading/creation and class reloading, all of them can be found in <code>org.springframework.scripting</code> which is part of the <code>org.springframework.context</code> Maven module.
+
+Let us first of all take a look at how the integration of Groovy scripts works. In order to declare a controller bean, we would have to use the following XML snippet in the MVC dispatcher context file:
+
+{% highlight xml %} 
+<?xml version="1.0" encoding="UTF-8"?>
+<beans...>
+  <lang:groovy id="personController" script-source="classpath:PersonController.groovy">
+    <lang:property name="personRepository" ref="personRepository" />
+  </lang:groovy>
+
+  <!-- an otherwise normal bean that will be injected by the Groovy-backed Messenger -->
+  <bean id="personRepository" class="org.some.domain.PersonRepositoryJDBC">
+      <!-- ... -->
+  </bean>
+</beans>
+ {% endhighlight %}
+
+Notice, that the <code>lang</code> namespace is used as a special namespace. Spring's <code>LangNamespaceHandler</code> registers for <code>groovy</code>, <code>jruby</code> and <code>bsh</code> elements and, for each language, logically links them to custom <code>ScriptFactory</code> implementations:
+
+{% highlight java %} 
+public class LangNamespaceHandler extends NamespaceHandlerSupport {
+  // ...
+  registerScriptBeanDefinitionParser("groovy", "org.springframework.scripting.groovy.GroovyScriptFactory");
+  registerScriptBeanDefinitionParser("jruby", "org.springframework.scripting.jruby.JRubyScriptFactory");
+  registerScriptBeanDefinitionParser("bsh", "org.springframework.scripting.bsh.BshScriptFactory");
+  // ...
+ {% endhighlight %}
+
+At run-time, this task is done by an instance of <code>ScriptBeanDefinitionParser</code>: for each bean definition prefixed with <code>lang</code> it generates a script factory bean according to the language element being specified. All XML attributes of <code>lang:groovy</code> are indeed used to specify a script factory and not the Groovy object itself.
+
+Let us take a look at the <code>ScriptFactory</code> interface:
+
+{% highlight java %} 
+
+public interface ScriptFactory {
+
+  String getScriptSourceLocator();
+
+  Class[] getScriptInterfaces();
+
+  boolean requiresConfigInterface();
+
+  Object getScriptedObject(ScriptSource scriptSource, Class[] actualInterfaces);
+
+  Class getScriptedObjectType(ScriptSource scriptSource);
+
+  boolean requiresScriptedObjectRefresh(ScriptSource scriptSource);
+}
+
+ {% endhighlight %}
+
+The most interesting methods are <code>getScriptedObject</code>, <code>getScriptedType</code> and <code>requiresScriptedObjectRefresh</code>.
+
+<code>getScriptedType</code> is mainly used by Spring's IoC container to determine the bean type and check whether it implements certain interfaces, not much magic implied here.
+
+<code>requiresScriptedObjectRefresh</code> can be used for a certain script source to determine whether it has been modified and requires a refresh. Refreshing of dynamic beans is the <em>main feature</em> justifying using dynamic language support. One could easily configure the application to refresh Groovy beans during development, but keeping them static in the production environment (who would ever consider to take a change directly in a source-file in the production environment ;-)), tremendously fastening development.
+
+<code>getScriptedObject</code> is the heart of each script factory implementation. It is used as a <i>factory method</i> to create scripted Java objects.
+
+<h4>Scripted Java Objects</h4>
+
+Let us take a look at the Groovy script factory implementation, which is found in <code>GroovyScriptFactory</code>.
+
+{% highlight java %} 
+public Object getScriptedObject(ScriptSource scriptSource, Class[] actualInterfaces)  {
+
+  synchronized (this.scriptClassMonitor) {
+    // some caching stuff...
+
+    this.scriptClass = getGroovyClassLoader().parseClass(scriptSource.getScriptAsString(),         scriptSource.suggestedClassName());
+
+  if (Script.class.isAssignableFrom(this.scriptClass)) {
+    // A Groovy script, probably creating an instance: let's execute it.
+    Object result = executeScript(scriptSource, this.scriptClass);
+    this.scriptResultClass = (result != null ? result.getClass() : null);
+    return result;
+  } else {
+    this.scriptResultClass = this.scriptClass;
+  }
+  }
+  scriptClassToExecute = this.scriptClass;
+}
+
+// Process re-execution outside of the synchronized block.
+return executeScript(scriptSource, scriptClassToExecute);
+
+ {% endhighlight %}
+
+and in <code>executeScript</code>:
+
+{% highlight java %} 
+protected Object executeScript(ScriptSource scriptSource, Class scriptClass) throws ScriptCompilationException {
+
+  // ...
+  GroovyObject goo = (GroovyObject) scriptClass.newInstance();
+
+  if (this.groovyObjectCustomizer != null) {
+    // Allow metaclass and other customization.
+    this.groovyObjectCustomizer.customize(goo);
+  }
+
+  if (goo instanceof Script) {
+    // A Groovy script, probably creating an instance: let's execute it.
+    return ((Script) goo).run();
+  } else {
+    // An instance of the scripted class: let's return it as-is.
+    return goo;
+  }
+  // ...
+}
+ {% endhighlight %}
+
+As can be seen in the source snippet, <code>getScriptedObject</code> uses a <code>GroovyClassLoader</code> to parse the given script source string and to create a Java class object instance from it [<a href="http://groovy.codehaus.org/Embedding+Groovy">3</a>]. Since every script factory is directly connected to a single script source, the embedded caching mechanism is as easy as holding an instance variable to the scripted object and class.
+
+Another possibility for the <code>GroovyScriptFactory</code> would have been to use Groovy's <code>GroovyScriptEngine</code>. In contrast to Groovy's class loader it recognizes changes in the class inheritance paths and reloads affected class files directly. If you do not want to customize Spring's behavior you have to be aware of that circumstance.
+
+So far we have seen how a single XML bean definition relates to a script factory and how that script factory can be used to create dynamic objects, but where is the place that calls <code>getScriptedObject</code>? The answer is: that place needs to be generated by the <code>ScriptFactoryPostProcessor</code>, which is a descendant of Spring's bean-post processor interface.
+
+<h4>ScriptFactoryPostProcessor</h4>
+
+First of all, the <code>BeanPostProcessor</code> interface specifies callbacks which can be used as hook-ins for custom modification of container-managed beans. ApplicationContexts will automatically detect beans of this type and apply them on subsequent bean creations. If you use your favorite IDE's command to show all descendants of <code>BeanPostProcessor</code> you will notice that there are plenty of them. One with particular importance in the case of dynamic language support is the <code>InstantiationAwareBeanPostProcessor</code>.
+
+<code>InstantiationAwareBeanPostProcessor</code> is used to intercept the application container before instantiation and after instantiating a managed-bean. This post-processor type is typically used to suppress object instantiation of the specified bean and to create some proxy or other place-holder to intercept bean method calls.
+
+Spring's Groovy integration provides an implementation of that post-processor: <code>ScriptFactoryPostProcessor</code>.
+
+The script factory post-processor hooks into the post-process after object instantiation. As we have already seen the bean definition parser created script factory object beans. It is the script factory post-processor which intercepts creation of script factories <i>before</i> the factory object has been instantiated.
+
+When we take a look at XML bean definition again
+
+{% highlight xml %} 
+<lang:groovy id="personController" script-source="classpath:PersonController.groovy">
+  <lang:property name="personRepository" ref="personRepository" />
+</lang:groovy>
+ {% endhighlight %}
+
+we know that the definition is some kind of hybrid between script factory (defined by the XML attributes) and scripted object (defined by the properties) definition.
+
+Splitting into two separate bean definitions, a factory bean definition and a scripted object bean definition, is exactly what the <code>ScriptFactoryPostProcessor</code> does:
+
+{% highlight java %} 
+// ...
+this.scriptBeanFactory.registerBeanDefinition(scriptFactoryBeanName, createScriptFactoryBeanDefinition(bd));
+// ...
+BeanDefinition objectBd = createScriptedObjectBeanDefinition(bd, scriptFactoryBeanName, scriptSource, scriptedInterfaces);
+// ...
+ {% endhighlight %}
+
+The code creating the object bean definition looks the following way:
+
+{% highlight java %} 
+protected BeanDefinition createScriptedObjectBeanDefinition(BeanDefinition bd, String scriptFactoryBeanName, ScriptSource scriptSource, Class[] interfaces) {
+
+    GenericBeanDefinition objectBd = new GenericBeanDefinition(bd);
+    objectBd.setFactoryBeanName(scriptFactoryBeanName);
+    objectBd.setFactoryMethodName("getScriptedObject");
+    objectBd.getConstructorArgumentValues().clear();
+    objectBd.getConstructorArgumentValues().addIndexedArgumentValue(0, scriptSource);
+    objectBd.getConstructorArgumentValues().addIndexedArgumentValue(1, interfaces);
+    return objectBd;
+}
+ {% endhighlight %}
+
+The <code>BeanDefinition</code> instance which is handed as the first argument, holds the initial bean definition. It is copied and the bean rewritten to be a <a href="http://static.springsource.org/spring/docs/3.0.x/spring-framework-reference/html/beans.html#beans-factory-class-instance-factory-method">bean created by a factory method</a>. After all, Spring's Groovy integration and related components modify the initial XML definition to something like:
+
+{% highlight xml %} 
+<bean name="scriptFactory.personController" class="org.springframework.scripting.groovy.GroovyScriptFactory">
+   <constructor-arg type="java.lang.String" value="classpath:PersonController.groovy"/>
+</bean>
+
+<bean id="personController" name="scriptedObject.personController" factory-bean="scriptFactory.messenger" factory-method="getScriptedObject" class="groovy.script.PersonController">
+   <!-- ... -->
+</bean>
+
+ {% endhighlight %}
+
+<a href="http://andresteingress.files.wordpress.com/2010/04/scripted-objects-in-spring.png"><img src="http://andresteingress.files.wordpress.com/2010/04/scripted-objects-in-spring.png" alt="Scripted Beans in Spring" title="Scripted Beans in Spring" width="453" height="637" class="aligncenter size-full wp-image-239" /></a>
+
+As already mentioned, one of the main reasons you may want to use Spring's Groovy integration is dynamic refreshing of Groovy classes during run-time. The question which might raise is: why is it worth to use Spring's integration and not a custom solution like throwing GroovyClassLoader in the class loader hierarchy?
+
+<h4>Refreshing Groovy Beans</h4>
+
+Refreshing Groovy beans can be comfortable during development. In fact, refreshing beans comes down to reloading modified Groovy classes at run-time. I guess you already know that this is a potential trap for memory leaks (for an introduction to this problem take a look at [<a href="http://www.zeroturnaround.com/blog/reloading-objects-classes-classloaders/">0</a>] or [<a href="http://blogs.sun.com/fkieviet/entry/classloader_leaks_the_dreaded_java">1</a>]).
+
+Spring takes on a burden and solves the problem of class reloading and memory leaks by implementing a mechanism which allows beans to refresh themselves at some time during container life-time. AOP proxies are used to utilize this behavior. In the case of its dynamic language support, it provides a <code>RefreshableScriptTargetSource</code> which is responsible for providing a fresh bean whenever a certain delay has occurred. Creating a fresh mean is simply done by calling <code>getBean</code> of the current bean factory:
+
+{% highlight java %} 
+protected Object obtainFreshBean(BeanFactory beanFactory, String beanName) {
+    return beanFactory.getBean(beanName);
+}
+ {% endhighlight %}
+
+This code only works since the scriptable bean post-processor checks whether a delay has been set in the XML configuration and, if yes, applies the <code>PROTOTYPE</code> scope to the scripted object bean:
+
+{% highlight java %} 
+long refreshCheckDelay = resolveRefreshCheckDelay(bd);
+if (refreshCheckDelay >= 0) {
+    objectBd.setScope(BeanDefinition.SCOPE_PROTOTYPE);
+}
+ {% endhighlight %}
+
+The <code>BeanDefinition.SCOPE_PROTOTYPE</code> scope causes the application container to create a new instance whenever the bean is retrieved via <code>getBean</code> et. al. methods. Whenever a bean needs to be refreshed the factory method of the script factory, <code>getScriptedObject</code>, will be called to get a newly created scripted object bean.
+
+<h4>Additional Features</h4>
+
+If you know Grails and its object-relational mapping framework GORM, you surely have seen dynamically added methods, e.g. dynamic findes like <code>User.findAllByLogin("mustermann")</code>. Spring's integration layer provides a way for Groovy objects to register so-called <code>GroovyObjectCustomizer</code> implementations with Groovy script factories.
+
+The purpose of a <code>GroovyObjectCustomizer</code> is to allow customization of all Groovy objects, generated by the given script factory. The interface is as easy as:
+
+{% highlight java %} 
+public interface GroovyObjectCustomizer {
+  void customize(GroovyObject goo);
+}
+ {% endhighlight %}
+
+This interface's implementations can be specified via the <code>customizer-ref</code> XML attribute.
+
+{% highlight xml %} 
+<bean id="groovyObjectCustomizer" class="org.some.groovy.GlobalGroovyObjectCustomizer"/>
+
+<lang:groovy id="personController" script-source="classpath:PersonController.groovy" customizer-ref="groovyObjectCustomizer">
+  <lang:property name="personRepository" ref="personRepository" />
+</lang:groovy>
+ {% endhighlight %}
+
+The <code>groovyObjectCustomizer</code> can than be used to do meta-programming, etc.
+
+<h4>Alternatives</h4>
+
+Notice, integrating Groovy in Spring does not need to be that complicated anyway if you don't care about dynamically reloading Groovy sources. Since Groovy comes with its own compiler, it all comes down to JVM byte-code at the end. That means you are free to use all of Spring's features as long as the outcoming byte-code conforms to that of its Java equivalent. E.g. you can use Spring MVC annotations to declare controllers:
+
+{% highlight groovy %} 
+@RequestMapping("/person/**")
+@Controller
+class PersonController {
+
+  @Autowired
+  def PersonRepository personRepository
+
+  @RequestMapping(value = "/person", method = RequestMethod.POST)
+  def String create(@Valid Person person, BindingResult result, ModelMap model) {
+
+    if (result.hasErrors()) {
+      model["person"] = person
+      "person/create"
+    } else {
+
+      personRepository.persist person
+
+      redirect "/person/${person.getId()}"
+    }
+  }
+
+  @RequestMapping(value = "/person/form", method = RequestMethod.GET)
+  def String createForm(ModelMap model) {
+    model["person"] = new Person()
+
+    "person/create"
+  }
+
+  @RequestMapping(value = "/person/{id}", method = RequestMethod.GET)
+  def String show(@PathVariable("id") Long id, ModelMap model) {
+    model["person"] = personRepository.findPerson(id)
+
+    "person/show"
+  }
+  // ...
+}
+ {% endhighlight %}
+
+There is no additional configuration effort. This makes it even more interesting to implement the controller and view completely on top of Groovy and realize the domain in statically typed, good-old Java.
+
+<h4>Summary</h4>
+
+Spring's dynamic language support covers Groovy, JRuby and BeanShell out-of-the-box and could be easily extended. The framwork's approach is to support certain artifacts to be implemented by Groovy, e.g. Controllers, Repositories, Services etc.
+
+The main feature that would suffice to actually use its integration layer, instead of compiling classes and getting the application's build-processes in the correct order, is refreshing of scripted objects. Although you might not want to enable this feature in production, it indeed saves you a lot of time during development and it saves a lot of headaches for taking care of class loading memory leaks.
+
+<br><br><div>[0] <a href="http://www.zeroturnaround.com/blog/reloading-objects-classes-classloaders/">Reloading Java Classes: Objects, Classes and ClassLoaders</a></div>
+<div>[1] <a href="http://blogs.sun.com/fkieviet/entry/classloader_leaks_the_dreaded_java">ClassLoader leaks: the dreaded "Out of Memory" Exception</a></div>
+<div>[2] <a href="http://static.springsource.org/spring/docs/3.0.x/spring-framework-reference/html/dynamic-language.html">Spring Documentation - Dynamic Language Support</a></div>
+<div>[3] <a href="http://groovy.codehaus.org/Embedding+Groovy">Embedding Groovy - Groovy Project Codehaus</a></div>

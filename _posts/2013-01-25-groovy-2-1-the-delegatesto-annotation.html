@@ -1,0 +1,167 @@
+---
+layout: post
+title: 'Groovy 2.1: The @DelegatesTo Annotation'
+categories:
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _edit_lock: '1390383732'
+  _edit_last: '2'
+  _syntaxhighlighter_encoded: '1'
+  _wp_old_slug: ''
+---
+http://docs.codehaus.org/display/GROOVY/Eclipse+Plugin#EclipsePlugin-DevelopmentBuildsGroovy 2.1 comes with a neat feature for DSL and Groovy library others: the <tt>@DelegateTo</tt> [<a href="http://jira.codehaus.org/browse/GROOVY-5714">0</a>] annotation.
+<h3>The Delegate and The Closure</h3>
+Groovy supports the concept of closures [<a href="http://en.wikipedia.org/wiki/Closure_(computer_science)">1</a>]. One closure feature is to being able to modifiy the closure code delegation mechanism. Once a closure is defined, its <tt>delegate</tt> object can be changed by setting the delegate property:
+{% highlight groovy %} def me = 'André'
+def closure = { greet me }
+
+closure.delegate = new Greeter()
+
+closure() {% endhighlight %}
+In the code sample above, we change the delegate to an instance of <tt>Greeter</tt>.
+{% highlight groovy %} class Greeter {
+    void greet(def another)  {
+        println "Hello, $another"
+    }
+} {% endhighlight %}
+When executing the code in groovConsole [<a href="http://groovy.codehaus.org/Groovy+Console">2</a>], it prints
+{% highlight groovy %} No signature of method: ConsoleScript1.greet() is applicable for argument types: (java.lang.String) values: [André] {% endhighlight %}
+Ups, obviously we did forget one little thing: the resolve strategy. By setting the resolve strategy of a single <tt>groovy.lang.Closure</tt> instance, we can chose between the following types:
+<ul>
+	<li><strong>OWNER_ONLY</strong>: delegate method calls to the owner of the closure (e.g. the instance creating the closure instance)</li>
+	<li><strong>DELEGATE_ONLY</strong>:  delegate method calls to the delegate of the closure</li>
+	<li><strong>OWNER_FIRST</strong>: delegate to the owner first, then the delegate</li>
+	<li><strong>DELEGATE_FIRST</strong>: delegate to the delegate first, then the owner</li>
+	<li><strong>SELF_ONLY</strong>: method calls are resolved against the closure instance only</li>
+</ul>
+In our example the resolve strategy should be set to <tt>DELEGATE_FIRST</tt> or <tt>OWNER_FIRST</tt>, as we call <tt>Greeter#greet</tt> and have a reference to the script variable <tt>me</tt>.
+{% highlight groovy %} def me = 'André'
+def closure = { greet me }
+
+closure.delegate = new Greeter()
+closure.resolveStrategy = Closure.DELEGATE_FIRST
+
+closure() {% endhighlight %}
+<h3>What's the deal?</h3>
+Modifying the closure resolving strategy is a powerful technuique for DSL and Groovy library authors. For example, take a look at GContracts [<a href="https://github.com/andresteingress/gcontracts">3</a>], a Design by Contract extension for Groovy, that uses closure annotations to specify contracts on methods and classes:
+{% highlight groovy %} @Invariant({ elements != null })
+class Stack {
+
+    List elements
+
+    @Ensures({ is_empty() })
+    def Stack()  {
+        elements = []
+    }
+
+    // ...
+
+    @Ensures({ last_item() == item })
+    def push(T item)  {
+       elements.add(item)
+    }
+
+    @Requires({ !is_empty() })
+    @Ensures({ last_item() == item })
+    def replace(T item)  {
+        remove()
+        elements.add(item)
+    }
+
+    @Requires({ !is_empty() })
+    @Ensures({ result != null })
+    T remove()  {
+        elements.remove(count() - 1)
+    }
+
+    String toString() { elements.toString() }
+}
+
+def stack = new Stack() {% endhighlight %}
+Another example is definitely Gradle [<a href="http://www.gradle.org">4</a>], the Groovy-based build automation framework:
+{% highlight groovy %} task hello << {
+    println 'Hello Earth'
+}
+hello.doFirst {
+    println 'Hello Venus'
+}
+hello.doLast {
+    println 'Hello Mars'
+}
+hello << {
+    println 'Hello Jupiter'
+} {% endhighlight %}
+When working with one of these libraries in IntelliJ or Eclipse, one shortage becomes immediately apparent: whenever a custom delegate object is set, IntelliJ or Eclipse do not provide code completion for closure code, except the IDE of choice comes with specific framework support.
+
+<a href="http://blog.andresteingress.com/wp-content/uploads/2013/01/screen.tiff"><img class="aligncenter size-full wp-image-2348" title="IntelliJ" src="http://blog.andresteingress.com/wp-content/uploads/2013/01/screen.tiff" alt="" /></a>
+<h3>@DelegatesTo comes into play</h3>
+As of version 2.1, Groovy provides a way for DSL, library and framework authors to hint IDEs in the right direction: the <tt>@DelegatesTo</tt> annotation. In its simplest application, <tt>@DelegatesTo</tt> has only a single default argument of type <tt>java.lang.Class</tt>. Back to our previous example, we have to introduce an indirection as <tt>@DelegatesTo</tt> can only be applied on parameters:
+{% highlight groovy %} class Greeter {
+    void greet(def another)  {
+        println "Hello, $another"
+    }
+}
+
+class Marketplace {
+
+    void interactions(@DelegatesTo(Greeter) Closure closure) {
+        closure.delegate = new Greeter()
+        closure.resolveStrategy = Closure.DELEGATE_FIRST
+        closure()
+    }
+}
+
+def marketplace = new Marketplace()
+
+def me = 'André'
+marketplace.interactions{
+    greet me
+} {% endhighlight %}
+We can even provide more meta-data by specifying the <tt>strategy</tt> attribute:
+{% highlight groovy %} // ...
+void interactions(@DelegatesTo(strategy = Closure.DELEGATE_FIRST, value = Greeter) Closure closure) {
+// ... {% endhighlight %}
+<h3>The DelegatesTo.Target Annotation</h3>
+<tt>@DelegatesTo</tt> has one last additional meta-data that can be applied on method paramters: the <tt>@DelegatesTo.Target</tt> annotation.
+
+Whenever an actual parameter will be set as the closure's delegate object, the <tt>Target</tt> can be used to document this circumstance:
+{% highlight groovy %} // ...
+void interactions(@DelegatesTo.Target Greeter greeter, @DelegatesTo(Greeter) Closure closure) {
+    closure.delegate = greeter // <-- the argument will be set as closure delegate
+    // ....
+}
+
+// ... {% endhighlight %}
+For the special case of having multiple parameters of the same type, there is a <tt>target</tt> annotation element type that allows for specifying unique <tt>String</tt> ids.
+{% highlight groovy %} // ...
+void interactions(@DelegatesTo.Target('id') Greeter greeter, @DelegatesTo(target = 'id') Closure closure) {
+    closure.delegate = greeter // <-- the argument will be set as closure delegate
+    // ....
+}
+
+// ... {% endhighlight %}
+Note, in the example above we did not specify a class for the <tt>closure</tt> parameter. This can be omitted since the type will be inferred from the <tt>greeter</tt> parameter.
+<h3>IDE Support</h3>
+Besides supporting IDEs the <tt>@DelegatesTo</tt> information is evaluated by <tt>@TypeChecked</tt> and <tt>@CompileStatic</tt>.
+
+As of writing, neither IntelliJ nor the Groovy Eclipse plugin comes with support for <tt>@DelegatesTo</tt>, but it is expected to become supported in the near future:
+
+<img class="alignleft size-full wp-image-2356" title="IntelliJ Support " src="http://blog.andresteingress.com/wp-content/uploads/2013/01/screen2.tiff" alt="" />
+<h3>Conclusion</h3>
+DSL, library and Groovy framework authors should definitely consider adding <tt>@DelegatesTo</tt> to their method meta-data. Besides the benefit of better IDE support (think of code completion), additional meta-data is utilized by Groovy 2.0's <tt>@TypeChecked</tt> and <tt>@CompileStatic</tt> to catch even more typing errors.
+
+It's a small step for third party authors, but a big step for Groovy IDE support.
+
+<strong>Update</strong>
+
+As announced today (2013-02-07), <em>@DelegatesTo</em> is supported by the Groovy-Eclipse plugin. Snapshot builds are available at <a href="http://docs.codehaus.org/display/GROOVY/Eclipse+Plugin#EclipsePlugin-DevelopmentBuilds">http://docs.codehaus.org/display/GROOVY/Eclipse+Plugin#EclipsePlugin-DevelopmentBuilds</a>
+
+<br><br><div>[0] <a href="http://jira.codehaus.org/browse/GROOVY-5714">GROOVY-5714: @DelegatesTo annotation for IDEs/TypeChecker</a></div>
+<div>[1] <a href="http://en.wikipedia.org/wiki/Closure_(computer_science)">Wikipedia: Closure</a></div>
+<div>[2] <a href="http://groovy.codehaus.org/Groovy+Console">grooovyConsole</a></div>
+<div>[3] <a href="https://github.com/andresteingress/gcontracts">GContracts</a></div>
+<div>[4] <a href="http://www.gradle.org">Gradle - Build Automation Framework</a></div>

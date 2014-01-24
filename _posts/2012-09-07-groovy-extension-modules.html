@@ -1,0 +1,117 @@
+---
+layout: post
+title: Groovy Extension Modules
+categories:
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _edit_last: '2'
+  _edit_lock: '1347014436'
+  _wp_old_slug: ''
+  _syntaxhighlighter_encoded: '1'
+---
+One of Groovy's strengths is its ability to decrease clue code and API flaws by providing additional API methods for JDK classes. 
+
+For example, instead of creating a reader and reading a file of certain encoding, Groovy enriches <tt>java.io.File</tt> with a <tt>#getText(String charset)</tt> method. 
+
+In fact, the following Groovy code to read a text file (yeah, we all have seen this code in Java more than a couple of times) is:
+
+{% highlight groovy %} 
+def f = new File(...)
+def text = f.text('utf-8')
+ {% endhighlight %}
+
+Before 2.0, these methods have all internally been centralised in a class called <tt>DefaultGroovyMethods</tt> [<a href="http://groovy.codehaus.org/api/org/codehaus/groovy/runtime/DefaultGroovyMethods.html">0</a>], thus the methods defined within this class have been called <i>DGM methods</i>.
+
+Groovy 2.0 not only split the DGM class into multiple classes: <tt>ResourceGroovyMethods</tt>, <tt>IOGroovyMethods</tt>, <tt>StringGroovyMethods</tt> etc. but provides a way to add custom methods to JDK classes through so-called <b>extension modules</b>. 
+
+<h3>Defining Extension Modules</h3>
+
+Extension modules themselves define static or instance methods. We start with instance methods. Let us assume we wanted to enrich the <tt>java.util.GregorianCalendar</tt> which implements <tt>java.util.Calendar</tt> with custom methods, e.g. a unique month code that is computed by YEAR * 100 + MONTH.
+
+First of all, we need to create a Groovy or Java class. The class name does not need to comply to a naming convention, so we'll name the class <tt>MyCalendarExtensions</tt>.
+
+{% highlight groovy %} 
+class MyCalendarExtensions {
+
+    static int getYear(Calendar self)  {
+        return self.get(Calendar.YEAR)
+    }
+
+    static int getMonth(Calendar self)  {
+        return self.get(Calendar.MONTH) + 1
+    }
+
+    static int getDay(Calendar self)  {
+        return self.get(Calendar.DAY_OF_MONTH)
+    }
+
+    static int getMonthCode(Calendar self) {
+        return getYear(self) * 100 + getMonth(self)
+    }
+
+    // ...
+}
+ {% endhighlight %} 
+
+The first parameter of an extension instance method always has to be the <tt>self</tt> parameter. It refers to the object this extension method is called on. Although every single method in this class is defined as a static method, the Groovy compiler will create instance methods for every single method and attach it to the type of the <tt>self</tt> parameter. It would be possible to bundle extension methods for different target types in a single extension module, although this is not considered clean style.
+
+In order to detect the additional methods during compilation, an additional file is needed in <tt>META-INF/services</tt>: org.codehaus.groovy.runtime.ExtensionModule
+
+[sourcecode]
+moduleName=calendar-module
+moduleVersion=1.0-ast
+extensionClasses=org.ast.MyCalendarExtensions
+[/sourcecode]
+
+The module name and module version information is needed to detect conflicting module versions during the registration of all extension modules in the class path.
+
+After having added the meta-information, we can write a test-case for the newly added <tt>getMonthCode()</tt> Calendar method:
+
+{% highlight groovy %} 
+class MyCalendarExtensionsTests extends GroovyTestCase {
+
+    void testGetMonthCode_whenCurrentDate_thenReturnYearMultipliedBy100PlusMonth() {
+
+        def c = Calendar.instance
+        int monthCode = c.monthCode
+
+        assert monthCode == c.year * 100 + c.month
+    }
+
+}
+ {% endhighlight %}
+
+As can be seen in the code sample above, the meta methods lead to much cleaner code and add the month code computation to every <tt>Calendar</tt> instance that is around in our project.
+
+If we wanted to implement this trivial example in Java, we would have ended up with a separate *Util class and the usual <tt>Calendar.get(...)</tt> method calls.
+
+If we wanted to add static methods, we would have to define a separate Groovy or Java class and add the appropriate meta-information to the META-INF file:
+
+{% highlight groovy %} 
+class MyStaticCalendarExtensions {
+
+    static Calendar getToday(Calendar selfType) {
+        Calendar.instance
+    }
+}
+
+ {% endhighlight %}
+
+[sourcecode]
+staticExtensionClasses=org.ast.MyStaticCalendarExtensions
+[/sourcecode]
+
+Note that even we added a static method, the <tt>self</tt> parameter is still needed to find out about the class the static method has to be added to.
+
+As the majority in "extensionClasses" implies, <tt>extensionClasses</tt> and <tt>staticExtensionClasses</tt> might hold a comma-separated list of multiple extension definition classes.
+
+<h3>Conclusion</h3>
+
+Extension modules are an easy way to avoid a handful utility classes within a project. By defining Groovy or Java classes and providing some meta-data, JDK classes can be enriched by custom instance and static methods.
+
+<br><br><div>[0] <a href="http://groovy.codehaus.org/api/org/codehaus/groovy/runtime/DefaultGroovyMethods.html">DefaultGroovyMethods JavaDoc</a></div>
+<div>[1] <a href="http://docs.codehaus.org/display/GROOVY/Creating+an+extension+module">Extension Modules for Extension Methods - Groovy Doc</a></div>

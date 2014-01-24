@@ -1,0 +1,40 @@
+---
+layout: post
+title: 'Grails Quickie: How to Load Dependency Sources and Javadocs'
+categories:
+- grails
+- plugins
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _flattr_post_language: ''
+  _flattr_post_category: ''
+  _flattr_post_hidden: ''
+  _flattr_btn_disabled: ''
+  _syntaxhighlighter_encoded: '1'
+  _edit_last: '13220543'
+  _edit_lock: '1294151966'
+  jabber_published: '1290096541'
+  email_notification: '1290096543'
+  _wp_old_slug: ''
+  reddit: s:55:"a:2:{s:5:"count";s:1:"0";s:4:"time";s:10:"1293719860";}";
+---
+Once you start a new Grails project and you want to access all the source code of dependent libraries, you have to manually reference the according source files. This is a boring, time-consuming and error-prone task - something like <code>mvn dependency:sources</code> is definitely missing. Luckily, there exists a workaround which can be done using the <code>eclipse-scripts</code> [<a href="http://www.grails.org/plugin/eclipse-scripts">0</a>] plugin:
+
+[sourcecode]
+grails install-plugin eclipse-scripts
+grails compile
+grails download-sources-and-javadocs
+# run twice to download everything
+grails download-sources-and-javadocs
+# grails create-eclipse-files # run this one to create .classpath/.project Eclipse/STS files
+[/sourcecode]
+
+Executing <code>download-sources-and-javadocs</code> loads the docs and copies them into the Ivy cache directory.
+
+Thanks to Lari Hotari who came up with this solution on the Grails mailing-list [<a href="http://grails.1312388.n4.nabble.com/Grails-dependency-sources-td2956849.html">1</a>].
+
+<br><br><div>[0] <a href="http://www.grails.org/plugin/eclipse-scripts">Eclipse Helper Scripts Plugin</a></div>
+<div>[1] <a href="http://grails.1312388.n4.nabble.com/Grails-dependency-sources-td2956849.html">Nabble Grails User Mailing-List - Grails Dependency Sources</a></div>

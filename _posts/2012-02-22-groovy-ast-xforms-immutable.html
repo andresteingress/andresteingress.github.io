@@ -1,0 +1,175 @@
+---
+layout: post
+title: 'Groovy AST xforms: @Immutable'
+categories:
+- ast transformations
+- groovy
+tags: []
+status: draft
+type: post
+published: false
+meta:
+  _syntaxhighlighter_encoded: '1'
+  _edit_lock: '1329949277'
+  _edit_last: '2'
+---
+<tt>@Immutable</tt> is an AST transformation that has been introduced with Groovy 1.7. It allows to define classes whereas instances of these classes aren't mutable after initial creation. 
+
+Let's assume we have classes in our code base resembling value objects [<a href="http://domaindrivendesign.org/node/135">0</a>]. One outstanding property of value objects are their immutability. In Groovy, <tt>@Immutable</tt> can be used to declare classes as being immutable:
+
+{% highlight groovy %} 
+import groovy.transform.Immutable
+
+@Immutable class HttpStatusCode {
+    Integer numeric
+    String textual
+}
+
+ {% endhighlight %} 
+
+Whenever an instance is created either using a constructor with positional or named parameters, the resulting object is immutable. 
+
+{% highlight groovy %} 
+
+def statusCode = new HttpStatusCode(404, 'Not found')
+// or ...
+def statusCode = new HttpStatusCode(numeric: 404, textual: 'Not found')
+
+ {% endhighlight %}
+
+Compared to the Groovy's usual options on how to create objects, <tt>@Immutable</tt> takes care that the runtime-types comply to the explicitly declared types. Creating the <tt>HttpStatusCode</tt> with, let's say BigDecimal, would fail:
+
+{% highlight groovy %} 
+
+def status = new HttpStatusCode(404.0, 'NOT FOUND')
+
+groovy.lang.GroovyRuntimeException: Could not find matching constructor for: HttpStatusCode(java.math.BigDecimal, java.lang.String)
+
+ {% endhighlight %}
+
+Moreover, <tt>@Immutable</tt> prohibits the generation of setter methods, introduces <tt>private final</tt> instance variables and, if possible, clones instances variables or marks them as being immutable (e.g. for collection via <tt>Collections.unmodifiable*</tt> and does other clever tricks to ensure immutability.
+
+Note, the above code sample explicitly declares the expected property types. This has to be done in order to give <tt>@Immutable</tt>'s AST transformation enough information to choose appropriate shielding mechanisms. Here is a look at the final outcome after <tt>ImmutableASTTransformation</tt> has been applied:
+
+{% highlight groovy %} 
+
+@groovy.transform.Immutable
+final public class HttpStatusCode extends java.lang.Object { 
+
+    final private java.lang.Integer numeric 
+    final private java.lang.String textual 
+    private int $hash$code 
+
+    public HttpStatusCode(java.util.HashMap args) {
+        if ( args == null) {
+        } else {
+            if ( args .numeric == null) {
+                if (null == null) {
+                } else {
+                    this .numeric = null
+                }
+            } else {
+                this .numeric = args .numeric
+            }
+            if ( args .textual == null) {
+                if (null == null) {
+                } else {
+                    this .textual = null
+                }
+            } else {
+                this .textual = args .textual
+            }
+            org.codehaus.groovy.transform.ImmutableASTTransformation.checkPropNames(this, args)
+        }
+    }
+
+    public HttpStatusCode(java.lang.Integer numeric, java.lang.String textual) {
+        this (((['numeric': numeric , 'textual': textual ]) as java.util.HashMap))
+    }
+
+    public int hashCode() {
+        if ( $hash$code == 0) {
+            java.lang.Object _result = org.codehaus.groovy.util.HashCodeHelper.initHash()
+            _result = org.codehaus.groovy.util.HashCodeHelper.updateHash( _result , this.getNumeric())
+            _result = org.codehaus.groovy.util.HashCodeHelper.updateHash( _result , this.getTextual())
+            $hash$code = _result 
+        }
+        return $hash$code 
+    }
+
+    public boolean equals(java.lang.Object other) {
+        if ( other == null) {
+            return false
+        }
+        if (this.is(other)) {
+            return true
+        }
+        if (HttpStatusCode != other.getClass()) {
+            return false
+        }
+        java.lang.Object otherTyped = (( other ) as HttpStatusCode)
+        if (this.getNumeric() != otherTyped.getNumeric()) {
+            return false
+        }
+        if (this.getTextual() != otherTyped.getTextual()) {
+            return false
+        }
+        return true
+    }
+
+    public java.lang.String toString() {
+        java.lang.Object _result = new java.lang.StringBuilder()
+        java.lang.Object $toStringFirst = true
+        _result.append('HttpStatusCode(')
+        if ( $toStringFirst ) {
+            $toStringFirst = false
+        } else {
+            _result.append(', ')
+        }
+        _result.append(org.codehaus.groovy.runtime.InvokerHelper.toString(this.getNumeric()))
+        if ( $toStringFirst ) {
+            $toStringFirst = false
+        } else {
+            _result.append(', ')
+        }
+        _result.append(org.codehaus.groovy.runtime.InvokerHelper.toString(this.getTextual()))
+        _result.append(')')
+        return _result.toString()
+    }
+
+    public java.lang.Object this$dist$invoke$1(java.lang.String name, java.lang.Object args) {
+        return this."$name"(* args )
+    }
+
+    public void this$dist$set$1(java.lang.String name, java.lang.Object value) {
+        this ."$name" = value 
+    }
+
+    public java.lang.Object this$dist$get$1(java.lang.String name) {
+        return this ."$name"
+    }
+}
+
+ {% endhighlight %}
+
+<h3>Groovy 1.8.7: knownImmutables</h3>
+
+There are times when <tt>@Immutable</tt> has to be applied on classes that consist of third party library classes, or classes where you do not have a chance to annotate as <tt>@Immutable</tt>. Groovy 1.8.7 introduces the so-called "knownImmutables" attribute to <tt>@Immutable</tt>. 
+
+All classes specified in this java.lang.Class array are handled by <tt>@Immutable</tt> as if they have been annotated as being immutable:
+
+{% highlight groovy %} 
+import groovy.transform.Immutable
+
+@Immutable(knownImmutables = [ThirdPartyClass]) 
+class ReturnValue {
+    ThirdPartyClass value
+}
+
+ {% endhighlight %} 
+
+<h3>Conclusion</h3>
+
+<tt>@Immutable</tt> can be used to declaratively declare immutable classes. 
+
+<br><br><div>[0] <a href="http://domaindrivendesign.org/node/135">DDD Patterns: Value Objects</a> </div>

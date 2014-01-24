@@ -1,0 +1,65 @@
+---
+layout: post
+title: GSheets - A Groovy Builder based on Apache POI
+categories:
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _wp_old_slug: ''
+  _syntaxhighlighter_encoded: '1'
+  _edit_last: '2'
+  _edit_lock: '1344404407'
+---
+I recently asked on Twitter whether there was an Apache POI [<a href="http://poi.apache.org/">0</a>] Groovy builder for generating Excel workbooks. I did find a few blog posts [<a href="http://skepticalhumorist.blogspot.com/2010/12/groovy-dslbuilders-poi-spreadsheets.html">1</a>], [<a href="http://www.technipelago.se/content/technipelago/blog/44">2</a>], but none of the provided builders seemed to offer the ability to write styled and formatted Excel workbooks with possibly multiple sheets.
+
+So I decided to setup a new Github project (what else?) named <strong>GSheets</strong> [<a href="https://github.com/andresteingress/gsheets">3</a>]. At the current point of time it consists of a single class called <tt>ExcelFile</tt>, a Groovy builder for Excel workbooks based on HSSF [<a href="http://poi.apache.org/spreadsheet/">4</a>]. 
+
+{% highlight groovy %} 
+Workbook workbook = new ExcelFile().workbook {
+
+            // section for workbook formatting styles
+            styles {
+                font("bold")  { Font font ->
+                    font.setBoldweight(Font.BOLDWEIGHT_BOLD)
+                }
+
+                cellStyle ("header")  { CellStyle cellStyle ->
+                    cellStyle.setAlignment(CellStyle.ALIGN_CENTER)
+
+                }
+            }
+
+	    // section for workbook data
+            data {
+                sheet ("Export")  {
+                    header(["Column1", "Column2", "Column3"])
+
+                    row(["a", "b", "c"])
+                }
+            }
+
+            // section for applying commands i.e. apply a cell style, merge cells etc.
+            commands {
+                applyCellStyle(cellStyle: "header", font: "bold", rows: 1, columns: 1..3)
+            }
+        }
+ {% endhighlight %}
+
+As can be seen in the code sample above, <tt>ExcelFile</tt> gives a simple DSL for specifying styles, table data and commands. The <tt>styles</tt> section is used to define <tt>CellStyle</tt> objects. The <tt>data</tt> section specifies all the (header) rows and the <tt>commands</tt> section is used to apply styles, merge cells, and do various other operations on the current workbook sheet.
+
+<h3>What's next?</h3>
+
+I plan to continuously extend <tt>ExcelFile</tt> with all the spreadsheet generating features HSSF provides. If you want to contribute, feel free to ping me on Twitter (@asteingr) or this blog. 
+
+<br><br><div>[0] <a href="http://poi.apache.org/">Apache POI - http://poi.apache.org/</a></div>
+<div>[1] <a href="http://skepticalhumorist.blogspot.com/2010/12/groovy-dslbuilders-poi-spreadsheets.html">http://skepticalhumorist.blogspot.com/2010/12/groovy-dslbuilders-poi-spreadsheets.html</a></div>
+<div>[2] <a href="http://www.technipelago.se/content/technipelago/blog/44">http://www.technipelago.se/content/technipelago/blog/44</a></div>
+<div>[3] <a href="https://github.com/andresteingress/gsheets">GSheets Github - https://github.com/andresteingress/gsheets</a></div>
+<div>[4] <a href="http://poi.apache.org/spreadsheet/">Apache POI Spreadsheets - http://poi.apache.org/spreadsheet/</a></div>
+
+<a class="FlattrButton" style="display:none;" href="http://blog.andresteingress.com/2012/01/13/gsheets-a-groovy-builder-based-on-apache-poi/"></a>
+<noscript><a href="http://flattr.com/thing/466150/GSheets-A-Groovy-Builder-based-on-Apache-POI" target="_blank">
+<img src="http://api.flattr.com/button/flattr-badge-large.png" alt="Flattr this" title="Flattr this" border="0" /></a></noscript>

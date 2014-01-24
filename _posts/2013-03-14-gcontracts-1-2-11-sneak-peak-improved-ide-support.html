@@ -1,0 +1,52 @@
+---
+layout: post
+title: GContracts 1.2.11 Sneak Peak - Improved IDE Support
+categories:
+- gcontracts
+- groovy
+tags: []
+status: publish
+type: post
+published: true
+meta:
+  _edit_lock: '1363267993'
+  _syntaxhighlighter_encoded: '1'
+  _edit_last: '2'
+  _wp_old_slug: ''
+---
+GContracts [<a href="https://www.github.com/andresteingress/gcontracts">0</a>] is a "Design-by-Contract" implementation for Groovy. It adds the concept of programming by contract to the Groovy programming language by adding a single JAR file without third-party dependencies to the class-path.
+
+Here is a short preview for the upcoming 1.2.11 release.
+
+In the very beginning, GContracts was based on a "hidden" feature in Groovy 1.7: closure annotation parameters. As this was kind of a hidden trick, there was only accidental support for this feature in IDEs. This changed with the release of Groovy 1.8, which officially released the feature of closure annotation parameters.
+
+Another missing piece besides supporting closure annotation parameters was the possibility to let the IDE know about implicit variables added by GContracts during compile-time. This was especially needed for the <tt>@Ensures</tt> annotation's <tt>result</tt> and <tt>old</tt> variables.
+
+With the ongoing support for custom DSLs, I am happy to announce improved support in this area for the Eclipse Groovy/Grails Toolsuite (GGTS) and Intellij 12.1 [<a href="http://youtrack.jetbrains.com/issue/IDEA-98733">1</a>] and upwards.
+
+<h3>Unresolved Variables EVERYWHERE</h3>
+
+As of today, GContracts provides only a small - yet powerful - set of annotations: <tt>@Requires</tt>, <tt>@Ensures</tt> and <tt>@Invariant</tt>
+
+<tt>@Ensures</tt> - the annotation to define postconditions - is a special case. It adds two implicit variables to the closure code block: <tt>old</tt> and <tt>result</tt>. <tt>result</tt> is available in the case the target method is a non-void instance method and resembles the method's return value. <tt>old</tt> is a map and resembles all parameter and property values before a method call.
+
+<a href="http://blog.andresteingress.com/wp-content/uploads/2013/03/Screenshot.png"><img class="aligncenter size-full wp-image-2498" title="Unresolved Variable" src="http://blog.andresteingress.com/wp-content/uploads/2013/03/Screenshot.png" alt="" width="616" height="89" /></a>
+
+The problem with implicitly introduced variable names in DSLs is their support in IDEs. Up to now, neither IntelliJ nor Eclipse did recognize the <tt>old</tt> and <tt>result</tt> variables.
+
+With the upcoming 1.2.11 release, GContracts comes with bundled GDSL and DSDL files, to extend the IDE inference mechanisms:
+
+<a href="http://blog.andresteingress.com/wp-content/uploads/2013/03/Web_Screen1.png"><img class="aligncenter size-full wp-image-2499" title="IntelliJ Result" src="http://blog.andresteingress.com/wp-content/uploads/2013/03/Web_Screen1.png" alt="" width="357" height="221" /></a>
+
+Note, the inferred <tt>result</tt> variable is typed with the declared return type of the corresponding method. In the case of a void method, the variable is not available in the auto-completion dialog.
+
+<a href="http://blog.andresteingress.com/wp-content/uploads/2013/03/Web_Screen2.png"><img class="aligncenter size-full wp-image-2500" title="Old Variable IntelliJ" src="http://blog.andresteingress.com/wp-content/uploads/2013/03/Web_Screen2.png" alt="" width="400" height="281" /></a>
+<p style="text-align: center;"><a href="http://blog.andresteingress.com/wp-content/uploads/2013/03/Web_Screen3.png"><img class="size-full wp-image-2501 aligncenter" title="Old Variable Eclipse GGTS" src="http://blog.andresteingress.com/wp-content/uploads/2013/03/Web_Screen3.png" alt="" width="504" height="240" /></a></p>
+At time of writing, the <tt>old</tt> variable is simply typed as being of type <tt>java.util.Map</tt>. I will try to add some more logic to provide this variable only when it makes sense in the current context.
+
+<h3>And now?</h3>
+
+I am looking forward to release 1.2.11 until the next couple of days. There is "only" one bug pending being a class-loading issue, d'oh ;-)
+
+<br><br><div>[0] <a href="https://www.github.com/andresteingress/gcontracts">GContracts - Programming by Contract for Groovy</a></div>
+<div>[1] <a href="http://youtrack.jetbrains.com/issue/IDEA-98733">IntelliJ YouTrack - IDEA 98773</a></div>
