@@ -29,7 +29,7 @@ Postconditions are used to specify what work is guaranteed by the supplier to be
 
 Imagine a class <tt>Stack</tt> which provides methods for modifying objects kept in LIFO order.
 
-[source language="groovy"]
+{% highlight groovy %}
 import org.gcontracts.annotations.*
 
 @Invariant({ elements != null })
@@ -86,20 +86,20 @@ class Stack {
 
     def String toString() { elements.toString() }
 }
-[/source]
+{% endhighlight}
 
 As you can see in the code sample <tt>@Requires</tt> and <tt>@Ensures</tt> is used to specify pre- and postconditions in certain methods. Whenever an object of type <tt>Stack</tt> is used at runtime those assertions will be checked due to hidden code segments injected by GContracts at compile-time (under the assertion that Java's assert mechanism is activated via the command line argument <tt>-ea</tt>).
 
 Let's assume we need an extended <tt>Stack</tt> that provides us with changed method behavior. For example, we want to add a <tt>put</tt> method that adds inlining support for lists:
 
-[source language="groovy"]
+{% highlight groovy %}
 def stack = new Stack()
 stack.push(['value1', 'value2', 'value3'])
-[/source]
+{% endhighlight %}
 
 In order to implement this feature we need to override the <tt>put</tt> method found in the parent class.
 
-[source language="groovy"]
+{% highlight groovy %}
 class GroovyStack extends Stack  {
 
     @Override
@@ -110,19 +110,19 @@ class GroovyStack extends Stack  {
         return item
     }
 }
-[/source]
+{% endhighlight %}
 
 If we create an instance of <tt>GroovyStack</tt> and call <tt>put</tt> with a list as actual parameter, the following assertion violation appears:
 
-[source language="groovy"]
+{% highlight groovy %}
 [inherited postcondition] in method &lt;put(item:java.lang.Object)&gt; violated. Expression: (this.last_item() == item). Values: item = [1, 2, 3, 4]
-[/source]
+{% endhighlight %}
 
 A look at the original postcondition shows that this is in fact the case, since our new <tt>put</tt> method in the descendant flattens the given parameter and for each item in the given list executes the <tt>put</tt> method once.
 
 Maybe a new postcondition in the descendant will solve this issue:
 
-[source language="groovy"]
+{% highlight groovy %}
 class GroovyStack extends Stack  {
 
     @Override
@@ -134,13 +134,13 @@ class GroovyStack extends Stack  {
         return item
     }
 }
-[/source]
+{% endhighlight %}
 
 Execution again shows the following assertion:
 
-[source language="groovy"]
+{% highlight groovy %}
 [inherited postcondition] in method &lt;put(item:java.lang.Object)&gt; violated. Expression: (this.last_item() == item). Values: item = [1, 2, 3, 4]
-[/source]
+{% endhighlight %}
 
 This leads us to the most important point with rewritten postconditions in descendant classes: you can't override them.
 
@@ -150,11 +150,11 @@ A postcondition in a descendant class is always joined with the postcondition of
 
 This might seem awkward at first, but consider the following code:
 
-[source language="groovy"]
+{% highlight groovy %}
 Stack stack = StackFactory.getInstance()
 
 stack.put([1,2,3,4])
-[/source]
+{% endhighlight %}
 
 The thing is, if we override the <tt>put</tt> method in the <tt>GroovyStack</tt> class the semantic of the code above would change with the type of <tt>Stack</tt> used at runtime: a <tt>Stack</tt> instance would push the complete list on the stack, a <tt>GroovyStack</tt> instance would push the single list items.
 
@@ -172,13 +172,13 @@ In contrast with postconditions, preconditions <em>weaken</em> the parent's prec
 
 If we would like to rewrite the <tt>replace</tt> method in <tt>GroovyClass</tt> we could specify an additional precondition:
 
-[source language="groovy"]
+{% highlight groovy %}
    @Requires({ item != null })
     @Ensures({ item() == item })
     def replace(def item)  {
         super.replace(item)
     }
-[/source]
+{% endhighlight %}
 
 But that additional precondition weakens the original one, meaning that a call like <tt>remove(null)</tt> on <tt>GroovyStack</tt> would still suffice the precondition. In contrast, a <tt>put</tt> method call on an empty stack would still raise an <tt>AssertionError</tt>.
 
