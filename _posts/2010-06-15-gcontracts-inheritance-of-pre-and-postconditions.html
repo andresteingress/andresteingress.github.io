@@ -86,7 +86,7 @@ class Stack {
 
     def String toString() { elements.toString() }
 }
-{% endhighlight}
+{% endhighlight %}
 
 As you can see in the code sample <tt>@Requires</tt> and <tt>@Ensures</tt> is used to specify pre- and postconditions in certain methods. Whenever an object of type <tt>Stack</tt> is used at runtime those assertions will be checked due to hidden code segments injected by GContracts at compile-time (under the assertion that Java's assert mechanism is activated via the command line argument <tt>-ea</tt>).
 
