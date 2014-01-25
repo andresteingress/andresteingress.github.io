@@ -14,28 +14,43 @@ meta:
   _edit_last: '2'
   _edit_lock: '1386931037'
 ---
+<p>
 Recently I finished a small Android project for one of my clients. This article gives an introduction on how to build Kotlin Android applications with Gradle and how to use Kotlin programming languages features in an Android application.
+</p>
 
 <h3>Kotlin - A Statically Compiled Language</h3>
 
+<p>
 Kotlin [<a href="http://kotlin.jetbrains.org">0</a>] is a statically typed, compiled JVM-based programming language by JetBrains that merges features found in Scala, Groovy, C# and others, being a modern object-oriented and functional programming language with a much more concise syntax than Java. In practice, coding in Kotlin feels a lot like programming in Scala. 
+</p>
 
+<p>
 As of time writing, Kotlin comes with a small runtime and stdlib file size (as of SNAPSHOT-0.1): the runtime is about 180KB and the stlib has 378KB, which is a good thing for Android APKs as it allows to write modern and functional-influenced JVM code without getting big APK file sizes. 
+</p>
 
+<p>
 We'll have a look at some of the language features which are particularly interesting for programming classes found in Android applications. But before, let us start with the build-setup.
+</p>
 
 <h3>The Android Kotlin Gradle Plugin</h3>
 
+<p>
 Just recently the Android project team announced to leave Ant in favor of the Gradle build tool [<a href="http://www.gradle.org">1</a>]. Android's Gradle model is a bit different to the ordinary Gradle model [<a href="http://confluence.jetbrains.com/display/Kotlin/Kotlin+Build+Tools">2</a>]. In order to enable Kotlin support to the Android build, we have to include the <tt>kotlin-android</tt> Gradle plugin in our <tt>build.gradle</tt> script:
+</p>
 
-{% highlight groovy %} 
+<div class="highlightjs">
+    <pre class="groovy">
 apply plugin: 'android'
 apply plugin: 'kotlin-android'
- {% endhighlight %}
+    </pre>
+</div>
 
+<p>
 We have to be a bit careful to choose the correct plugin version in the <tt>buildscript</tt> section as the plugin enables a certain version of the programming language. Indifferences can lead to weird compilation errors:
+</p>
 
-{% highlight groovy %} 
+<div class="highlightjs">
+    <pre class="groovy">
 buildscript {
     ...
 
@@ -52,23 +67,33 @@ buildscript {
         classpath 'com.android.tools.build:gradle:0.6.+'
     }
 }
- {% endhighlight %}
+</pre>
+</div>
 
+<p>
 In order to include the standard libraries, we have to add another dependency to our application:
+</p>
 
-{% highlight groovy %} 
+<div class="highlightjs">
+    <pre class="groovy">
 compile 'org.jetbrains.kotlin:kotlin-stdlib:0.6.602'
- {% endhighlight %}
+</pre>
+</div>
 
+<p>
 The last step is to add another Gradle <i>source set</i> to the build. A source set is simply a directory for source files. We will use <tt>src/main/kotlin</tt> for our Kotlin files to let Android Studio know about the additional source files:
+</p>
 
-{% highlight groovy %} 
+<div class="highlightjs">
+    <pre class="groovy">
 main.java.srcDirs += 'src/main/kotlin'
- {% endhighlight %}
+</pre>
+</div>
 
-The final build script looks something like that:
+<p>The final build script looks something like that:</p>
 
-{% highlight groovy %} 
+<div class="highlightjs">
+    <pre class="groovy">
 buildscript {
     repositories {
         mavenCentral()
@@ -116,39 +141,40 @@ dependencies {
 
     // other deps ...
 }
- {% endhighlight %}
+</pre>
+</div>
 
-You can also have a look at the example project from JetBrans, the Android Java-Kotlin project at Github [<a href="https://github.com/JetBrains/kotlin-examples/tree/master/gradle/android-mixed-java-kotlin-project">3</a>].
+
+<p>You can also have a look at the example project from JetBrans, the Android Java-Kotlin project at Github [<a href="https://github.com/JetBrains/kotlin-examples/tree/master/gradle/android-mixed-java-kotlin-project">3</a>].</p>
  
-Now that we are ready with the build configuration we can start to hack a Kotlin Android application!
+<p>Now that we are ready with the build configuration we can start to hack a Kotlin Android application!</p>
 
 <h3>Hacking Android Kotlin Applications</h3>
 
-Let us start our journey by introducing a base class for all activities in our application. The class is called <tt>BaseActivity</tt> and inherits from <tt>FragmentActivity</tt>.
+<p>Let us start our journey by introducing a base class for all activities in our application. The class is called <tt>BaseActivity</tt> and inherits from <tt>FragmentActivity</tt>.</p>
 
-{% highlight scala %} 
+<div class="highlightjs">
+    <pre class="groovy">
 
 abstract class BaseActivity : FragmentActivity()  {
 }
+</pre></div>
 
- {% endhighlight %} 
+<p>The <tt>BaseActivity</tt> is abstract by default. As you might notice, it inherits the default constructor from <tt>FragmentActivity</tt>. Let us add an abstract property that needs to be implemented by all descendant classes: <tt>contentViewId</tt>. The <tt>contentViewId</tt> will refer to the actual content view layout XML file that will be used for a concrete activity implementation:</p>
 
-The <tt>BaseActivity</tt> is abstract by default. As you might notice, it inherits the default constructor from <tt>FragmentActivity</tt>. Let us add an abstract property that needs to be implemented by all descendant classes: <tt>contentViewId</tt>. The <tt>contentViewId</tt> will refer to the actual content view layout XML file that will be used for a concrete activity implementation:
-
-{% highlight scala %} 
-
+<div class="highlightjs">
+    <pre class="scala">
 abstract class BaseActivity : FragmentActivity()  {
     abstract val contentViewId : Int
 }
+</pre></div>
 
- {% endhighlight %} 
+<p>We added a new abstract property called <tt>contentViewId</tt> of the basic Kotlin type <tt>jet.Int</tt>. Kotlin comes with a bunch of basic types [<a href="http://confluence.jetbrains.com/display/Kotlin/Basic+types">4</a>] that are close to their Java equivalents. Be aware that they are not exactly the same, there are differences in the type widening rules and literals as can be found in the documentation. The property is declared using the <tt>val</tt> keyword. This means it is a read-only property that needs to be initialised once. In our case we would like to leave the initialization code up to the concrete activity classes, so we have to mark the property as <tt>abstract</tt>.</p>
 
-We added a new abstract property called <tt>contentViewId</tt> of the basic Kotlin type <tt>jet.Int</tt>. Kotlin comes with a bunch of basic types [<a href="http://confluence.jetbrains.com/display/Kotlin/Basic+types">4</a>] that are close to their Java equivalents. Be aware that they are not exactly the same, there are differences in the type widening rules and literals as can be found in the documentation. The property is declared using the <tt>val</tt> keyword. This means it is a read-only property that needs to be initialised once. In our case we would like to leave the initialization code up to the concrete activity classes, so we have to mark the property as <tt>abstract</tt>.
+<p>If we would leave that base class like this it would be rather pointless. So we override a method from the <tt>FragementActivity</tt> base class: <tt>onCreate</tt>:</p>
 
-If we would leave that base class like this it would be rather pointless. So we override a method from the <tt>FragementActivity</tt> base class: <tt>onCreate</tt>:
-
-{% highlight scala %} 
-
+<div class="highlightjs">
+    <pre class="scala">
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -157,15 +183,14 @@ If we would leave that base class like this it would be rather pointless. So we 
 
         setContentView(contentViewId)
     }
+</pre></div>
 
- {% endhighlight %} 
+<p>The code above contains a lot of Kotlin specifics. First of all, the <tt>override</tt> keyword is used to denote that we actually override a method from one of our base classes. If you start to write Kotlin programs you will experience that Kotlin is very strict about inheriting from classes or overriding stuff. For example, Kotlin classes need to be explicitly marked to be <tt>open</tt> for inheritance. The same goes for properties and so on. When you think about it from the library author perspective this makes a lot of sense as it allows to predefine exact extension points for third parties in your library code.</p>
 
-The code above contains a lot of Kotlin specifics. First of all, the <tt>override</tt> keyword is used to denote that we actually override a method from one of our base classes. If you start to write Kotlin programs you will experience that Kotlin is very strict about inheriting from classes or overriding stuff. For example, Kotlin classes need to be explicitly marked to be <tt>open</tt> for inheritance. The same goes for properties and so on. When you think about it from the library author perspective this makes a lot of sense as it allows to predefine exact extension points for third parties in your library code.
+<p>Another thing you might have noticed is <tt>Bundle?</tt>. Here the <tt>Bundle</tt> parameter is declared as a <i>nullable</i> type, it has a postfix question mark attached to the type name. Null-Safety [<a href="http://confluence.jetbrains.com/display/Kotlin/Null-safety">5</a>] isn't a new programming language feature, but Kotlin is actually on of the first JVM-based languages that is really determined to send <tt>null</tt> to the programming language graveyard. In Kotlin all types are null-safe per default. A variable needs explicitly be declared as nullable using the nullable type syntax shown above. Declaring a type as nullable has also consequences in its usages. For example, if we wanted to call some method on the <tt>savedInstanceState</tt>, a null-check would be enforced by the Kotlin compiler:</p>
 
-Another thing you might have noticed is <tt>Bundle?</tt>. Here the <tt>Bundle</tt> parameter is declared as a <i>nullable</i> type, it has a postfix question mark attached to the type name. Null-Safety [<a href="http://confluence.jetbrains.com/display/Kotlin/Null-safety">5</a>] isn't a new programming language feature, but Kotlin is actually on of the first JVM-based languages that is really determined to send <tt>null</tt> to the programming language graveyard. In Kotlin all types are null-safe per default. A variable needs explicitly be declared as nullable using the nullable type syntax shown above. Declaring a type as nullable has also consequences in its usages. For example, if we wanted to call some method on the <tt>savedInstanceState</tt>, a null-check would be enforced by the Kotlin compiler:
-
-{% highlight scala %} 
-
+<div class="highlightjs">
+    <pre class="scala">
     override fun onCreate(savedInstanceState: Bundle?) {
         super<FragmentActivity>.onCreate(savedInstanceState)
 
@@ -174,17 +199,16 @@ Another thing you might have noticed is <tt>Bundle?</tt>. Here the <tt>Bundle</t
         val lastIndex = savedInstanceState!!.get("lastIndex") // works but throws NPE if savedInstanceState is null
         val lastIndex = if (savedInstanceState != null) savedInstanceState.get("lastIndex") else -1 // works
     }
+</pre></div>
 
- {% endhighlight %} 
+<p>The code above shows various ways how the Kotlin compiler check can be satisfied. Check out the various operators and patterns that can be used and you might know from other languages: <tt>?.</tt> type safe navigation, <tt>?:</tt> elvis, <tt>!!</tt>force method call operator.</p>
 
-The code above shows various ways how the Kotlin compiler check can be satisfied. Check out the various operators and patterns that can be used and you might know from other languages: <tt>?.</tt> type safe navigation, <tt>?:</tt> elvis, <tt>!!</tt>force method call operator.
+<p>Another question that might be still left is why we didn't declare the <tt>savedInstanceState</tt> parameter as null-safe type? As null-safety is not enforced by Java we would run into inconsistencies if we would handle third-party Java code like Kotlin null-safe code. Therefore the rule is: whenever Java third party code is called, the types a nullable by default. Therefore, to override the third-party method from <tt>FragmentActivity</tt> we need to declare the <tt>Bundle</tt> as nullable.</p>
 
-Another question that might be still left is why we didn't declare the <tt>savedInstanceState</tt> parameter as null-safe type? As null-safety is not enforced by Java we would run into inconsistencies if we would handle third-party Java code like Kotlin null-safe code. Therefore the rule is: whenever Java third party code is called, the types a nullable by default. Therefore, to override the third-party method from <tt>FragmentActivity</tt> we need to declare the <tt>Bundle</tt> as nullable.
+<p>This rule might seem a bit strict at first time, but it actually forces the programmer to think about all the possible program states that can in theory occur. Let's assume we wanted to call the <tt>findViewById</tt> method in one of the descendant classes, we would have to deal with a nullable <tt>View</tt> return type:</p>
 
-This rule might seem a bit strict at first time, but it actually forces the programmer to think about all the possible program states that can in theory occur. Let's assume we wanted to call the <tt>findViewById</tt> method in one of the descendant classes, we would have to deal with a nullable <tt>View</tt> return type:
-
-{% highlight scala %} 
-
+<div class="highlightjs">
+    <pre class="scala">
     override fun onCreate(savedInstanceState: Bundle?) {
         super<FragmentActivity>.onCreate(savedInstanceState)
 
@@ -192,13 +216,12 @@ This rule might seem a bit strict at first time, but it actually forces the prog
 
         val view = findViewById(R.id.someView) // would return View?
     }
+</pre></div>
 
- {% endhighlight %} 
+<p>We can use an unsafe cast to force the type to be a null-safe type, but be aware that the nullable type isn't a lie. It could well be that you are referring to an ID that is not present in the current layout:</p>
 
-We can use an unsafe cast to force the type to be a null-safe type, but be aware that the nullable type isn't a lie. It could well be that you are referring to an ID that is not present in the current layout:
-
-{% highlight scala %} 
-
+<div class="highlightjs">
+    <pre class="scala">
     override fun onCreate(savedInstanceState: Bundle?) {
         super<FragmentActivity>.onCreate(savedInstanceState)
 
@@ -206,45 +229,42 @@ We can use an unsafe cast to force the type to be a null-safe type, but be aware
 
         val view = findViewById(R.id.someView) as View // if the return value is null, an exception is thrown!
     }
+</pre></div>
 
- {% endhighlight %} 
+<p>A better implementation would be to actually handle the null value that might be returned from <tt>findViewById</tt>. We will add this method to our <tt>BaseActivity</tt>:</p>
 
-A better implementation would be to actually handle the null value that might be returned from <tt>findViewById</tt>. We will add this method to our <tt>BaseActivity</tt>:
-
-{% highlight scala %} 
-
+<div class="highlightjs">
+    <pre class="scala">
     fun view(id : Int) : View {
         val view : View? = findViewById(id)
         if (view == null) 
               throw IllegalArgumentException("Given ID could not be found in current layout!")
         return view
     }
+</pre></div>
 
- {% endhighlight %} 
+<p>The code above is a good example on how the compiler analyses the program flow in order to find out about null-checks. As we have a null-check for our nullable <tt>View</tt> the compiler knows that the resulting type must be a null-safe <tt>View</tt>.</p>
 
-The code above is a good example on how the compiler analyses the program flow in order to find out about null-checks. As we have a null-check for our nullable <tt>View</tt> the compiler knows that the resulting type must be a null-safe <tt>View</tt>.
+<p>The <tt>view</tt> method also shows some syntactic sugar that comes with Kotlin. The <tt>new</tt> operator isn't needed to create instances of classes as you can see for the <tt>IllegalArgumentException</tt>. And Kotlin comes with type inference as you can see on the <tt>view</tt> declaration. In the previous example, the variable was declared to be of type <tt>View?</tt>, in the other example no explicit type was declared, thus the type has been inferred by the return type of the method used in the initialisation expression.</p>
 
-The <tt>view</tt> method also shows some syntactic sugar that comes with Kotlin. The <tt>new</tt> operator isn't needed to create instances of classes as you can see for the <tt>IllegalArgumentException</tt>. And Kotlin comes with type inference as you can see on the <tt>view</tt> declaration. In the previous example, the variable was declared to be of type <tt>View?</tt>, in the other example no explicit type was declared, thus the type has been inferred by the return type of the method used in the initialisation expression.
+<p>The <tt>view</tt> method above can be adapted to use a generic type parameter [<a href="http://confluence.jetbrains.com/display/Kotlin/Generics">6</a>] with the upper-bound type <tt>View</tt>. But be aware that we risk the chance of getting a <tt>ClassCastException</tt> for the beauty of getting the correct type:</p>
 
-The <tt>view</tt> method above can be adapted to use a generic type parameter [<a href="http://confluence.jetbrains.com/display/Kotlin/Generics">6</a>] with the upper-bound type <tt>View</tt>. But be aware that we risk the chance of getting a <tt>ClassCastException</tt> for the beauty of getting the correct type:
-
-{% highlight scala %} 
-
+<div class="highlightjs">
+    <pre class="scala">
     fun view<T : View>(id : Int) : T {
         val view : View? = findViewById(id)
         if (view == null) 
               throw IllegalArgumentException("Given ID could not be found in current layout!")
         return view as T
     }
+</pre></div>
 
- {% endhighlight %} 
+<p>Don't be afraid of using generics in Kotlin. They have been integrated on a much more pragmatical level than in Java with the possibility of declaring generic parameters and whether they are used to "produce" values or "consume" values, omitting the wildcard concept found in Java.</p>
 
-Don't be afraid of using generics in Kotlin. They have been integrated on a much more pragmatical level than in Java with the possibility of declaring generic parameters and whether they are used to "produce" values or "consume" values, omitting the wildcard concept found in Java.
+<p>Let's move on to another very nice Kotlin feature that makes a lot of sense especially for classes forced to fit within a certain framework bound: <i>traits</i>. A class can extend from multiple traits, so traits can be used as a restricted form of multiple inheritance. In my Android application I used traits quite frequently. One use-case was to offer a trait that encapsulates all the logic for implementing a view pager for teaser images that was found in various places of the application:</p>
 
-Let's move on to another very nice Kotlin feature that makes a lot of sense especially for classes forced to fit within a certain framework bound: <i>traits</i>. A class can extend from multiple traits, so traits can be used as a restricted form of multiple inheritance. In my Android application I used traits quite frequently. One use-case was to offer a trait that encapsulates all the logic for implementing a view pager for teaser images that was found in various places of the application:
-
-{% highlight scala %} 
-
+<div class="highlightjs">
+    <pre class="scala">
 trait ViewPagerFlavour : FragmentActivity {
 
     val mAdapter : ImageFragmentAdapter
@@ -304,14 +324,14 @@ trait ViewPagerFlavour : FragmentActivity {
         pageIndicator.notifyDataSetChanged()
     }
 }
+</pre></div>
 
- {% endhighlight %} 
+<p>As you can see the trait extends from <tt>FragementActivity</tt>. This means that our trait can only be used in classes that have <tt>FragementActivity</tt> in their inheritance path. Another property of Kotlin traits is that they are stateless. The properties must not have initialisation code, instead this code needs to be defined by the trait implementors. In the case above it was decided that the <tt>ImageFragmentAdapter</tt> and a <tt>teaserLoaded</tt> callback function needs to be provided. Actually, the <tt>teaserLoaded</tt> property shows how to declare function types as Kotlin is a functional language too. In this case, the <tt>teaserLoaded</tt> property must be initialised with a function object taking no parameters and returning nothing, which is the <tt>Unit</tt> type.</p>
 
-As you can see the trait extends from <tt>FragementActivity</tt>. This means that our trait can only be used in classes that have <tt>FragementActivity</tt> in their inheritance path. Another property of Kotlin traits is that they are stateless. The properties must not have initialisation code, instead this code needs to be defined by the trait implementors. In the case above it was decided that the <tt>ImageFragmentAdapter</tt> and a <tt>teaserLoaded</tt> callback function needs to be provided. Actually, the <tt>teaserLoaded</tt> property shows how to declare function types as Kotlin is a functional language too. In this case, the <tt>teaserLoaded</tt> property must be initialised with a function object taking no parameters and returning nothing, which is the <tt>Unit</tt> type.
+<p>The Kotlin standard library [<a href="https://github.com/JetBrains/kotlin/tree/master/libraries/stdlib">7</a>] defines various extension functions for collections and other basic types. For example it adds the <tt>forEach</tt> method that is used above to iterate over the image urls given to <tt>showTeaserImages</tt>. Kotlin extension functions [<a href="http://confluence.jetbrains.com/display/Kotlin/Extension+functions">8</a>] are not restricted to the standard library. They can be used in every Kotlin program to enrich third predefined library classes. Take a look at the following three extension functions I came to use quite frequently in my Android code:</p>
 
-The Kotlin standard library [<a href="https://github.com/JetBrains/kotlin/tree/master/libraries/stdlib">7</a>] defines various extension functions for collections and other basic types. For example it adds the <tt>forEach</tt> method that is used above to iterate over the image urls given to <tt>showTeaserImages</tt>. Kotlin extension functions [<a href="http://confluence.jetbrains.com/display/Kotlin/Extension+functions">8</a>] are not restricted to the standard library. They can be used in every Kotlin program to enrich third predefined library classes. Take a look at the following three extension functions I came to use quite frequently in my Android code:
-
-{% highlight scala %} 
+<div class="highlightjs">
+    <pre class="scala">
 package com.someapp
 
 fun View.show() {
@@ -327,19 +347,21 @@ fun View.hide() {
 fun TextView.string() : String {
     return getText()?.toString() ?: ""
 }
- {% endhighlight %}
+</pre></div>
 
-It's important to note that the syntax of an extension function forces us to prefix the function name with the type that is the extension target of that function. Once the functions are defined they can be imported with
+<p>It's important to note that the syntax of an extension function forces us to prefix the function name with the type that is the extension target of that function. Once the functions are defined they can be imported with</p>
 
-{% highlight scala %} 
+<div class="highlightjs">
+    <pre class="scala">
 import com.someapp.*
- {% endhighlight %}
+</pre></div>
 
-and are available on all direct or indirect <tt>View</tt> types. 
+<p>and are available on all direct or indirect <tt>View</tt> types. </p>
 
-The trait above also shows how to create anonymous classes or so-called object expressions in Kotlin:
+<p>The trait above also shows how to create anonymous classes or so-called object expressions in Kotlin:</p>
 
-{% highlight scala %} 
+<div class="highlightjs">
+    <pre class="scala">
 imageFragement!!.teaserImageLoaderEvents = object : TeaserImageLoaderEvents {
 
 	override fun errorOccurred() {
@@ -350,11 +372,12 @@ imageFragement!!.teaserImageLoaderEvents = object : TeaserImageLoaderEvents {
 	    runOnUiThread({ teaserLoaded() })
 	}
 }
- {% endhighlight %}
+</pre></div>
 
-Object expressions can also be used to implement singletons which I used in the Android application to implement various objects which would have otherwise ended in utility classes. For example, the <tt>Network</tt> singleton checks the network availability:
+<p>Object expressions can also be used to implement singletons which I used in the Android application to implement various objects which would have otherwise ended in utility classes. For example, the <tt>Network</tt> singleton checks the network availability:</p>
 
-{% highlight scala %} 
+<div class="highlightjs">
+    <pre class="scala"> 
 object Network {
     fun isOnline(ctx : Context) : Boolean {
         val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
@@ -362,12 +385,12 @@ object Network {
         return netInfo != null && netInfo.isConnectedOrConnecting()
     }
 }
- {% endhighlight %}
+</pre></div>
 
-or <tt>Screen</tt> can be used to have access to the display width/height or dp to pixel computation functions:
+<p>or <tt>Screen</tt> can be used to have access to the display width/height or dp to pixel computation functions:</p>
 
-{% highlight scala %} 
-
+<div class="highlightjs">
+    <pre class="scala">
 object Screen {
 
     fun width(ctx : Context) : Int {
@@ -399,24 +422,25 @@ object Screen {
         return metrics
     }
 }
+</pre></div>
 
- {% endhighlight %}
+<p>Before we end our journey to the Android Kotlin land, I'd like to show another cool feature that has been introduced to the Kotlin programming language: delegated properties. </p>
 
-Before we end our journey to the Android Kotlin land, I'd like to show another cool feature that has been introduced to the Kotlin programming language: delegated properties. 
+<p>In a nutshell, the feature can be used to delegate a <tt>set</tt> or <tt>get</tt> call to another object. Kotlin provides the <tt>Delegates</tt> class that already comes with some quite useful stuff. For example, it holds a <tt>lazy</tt> function that can be used to lazily initialise a property. </p>
 
-In a nutshell, the feature can be used to delegate a <tt>set</tt> or <tt>get</tt> call to another object. Kotlin provides the <tt>Delegates</tt> class that already comes with some quite useful stuff. For example, it holds a <tt>lazy</tt> function that can be used to lazily initialise a property. 
+<p>In Android applications this could be used to defer the actual view lookup to the point of time where the view is actually needed. Have a look at the following code that is found in a concrete activity class to lookup three <tt>TextView</tt> widgets:</p>
 
-In Android applications this could be used to defer the actual view lookup to the point of time where the view is actually needed. Have a look at the following code that is found in a concrete activity class to lookup three <tt>TextView</tt> widgets:
-
-{% highlight scala %} 
+<div class="highlightjs">
+    <pre class="scala">
 val txtLocationName : TextView by Delegates.lazy { view<TextView>(R.id.locationName)  }
 val txtLocationStreet : TextView by Delegates.lazy { view<TextView>(R.id.locationStreet)  }
 val txtLocationCity : TextView by Delegates.lazy { view<TextView>(R.id.locationCity)  }
- {% endhighlight %}
+</pre></div>
 
-Whenever one of the views is called at runtime, the first call will execute the function block given to the <tt>Delegates</tt> singleton. Subsequent calls will retrieve the cached value instead of calling the actual lookup for another time. Actually, what happens behind the scenes is nothing magical or complicated. The <tt>Delegates</tt> singleton creates an object of type <tt>LazyVal</tt> that implements a <tt>set</tt> and a <tt>get</tt> method. 
+<p>Whenever one of the views is called at runtime, the first call will execute the function block given to the <tt>Delegates</tt> singleton. Subsequent calls will retrieve the cached value instead of calling the actual lookup for another time. Actually, what happens behind the scenes is nothing magical or complicated. The <tt>Delegates</tt> singleton creates an object of type <tt>LazyVal</tt> that implements a <tt>set</tt> and a <tt>get</tt> method. </p>
 
-{% highlight scala %} 
+<div class="highlightjs">
+    <pre class="scala">
 private class LazyVal<T>(private val initializer: () -> T) : ReadOnlyProperty<Any?, T> {
     private var value: Any? = null
 
@@ -427,11 +451,12 @@ private class LazyVal<T>(private val initializer: () -> T) : ReadOnlyProperty<An
         return unescape(value) as T
     }
 }
- {% endhighlight %}
+</pre></div>
 
-Kotlin's <tt>by</tt> keyword gives the runtime a hint that instead of the actual receiver the method delegation needs to redirect to the delegation object, in this case, the <tt>LazyVal</tt>. Delegation isn't something that is restricted to properties only in Kotlin. The delegation pattern can also be used on a per-class basis:
+<p>Kotlin's <tt>by</tt> keyword gives the runtime a hint that instead of the actual receiver the method delegation needs to redirect to the delegation object, in this case, the <tt>LazyVal</tt>. Delegation isn't something that is restricted to properties only in Kotlin. The delegation pattern can also be used on a per-class basis:</p>
 
-{% highlight scala %} 
+<div class="highlightjs">
+    <pre class="scala"> 
 trait Base { 
   fun print() 
 } 
@@ -446,15 +471,15 @@ fun main() {
   val b = BaseImpl(10) 
   Derived(b).print() // prints 10 
 }
- {% endhighlight %}
+</pre></div>
 
-We will end our journey at this place. I had quite a lot of fun to implement an Android app in Kotlin. However, be aware that Kotlin is a rather young language and the support of other languages in Android is nothing that can be bet on in the future.
+<p>We will end our journey at this place. I had quite a lot of fun to implement an Android app in Kotlin. However, be aware that Kotlin is a rather young language and the support of other languages in Android is nothing that can be bet on in the future.</p>
 
 <h3>Conclusion</h3>
 
-Kotlin is a statically typed JVM programming language developed by JetBrains. Kotlin has a very slick runtime and standard library that - with the help of the Gradle build tool - can be used to build Android applications. This article shows some of the Kotlin programming language features that make developing Android applications fun.
+<p>Kotlin is a statically typed JVM programming language developed by JetBrains. Kotlin has a very slick runtime and standard library that - with the help of the Gradle build tool - can be used to build Android applications. This article shows some of the Kotlin programming language features that make developing Android applications fun.</p>
 
-<br><br><div>[0] <a href="http://kotlin.jetbrains.org">Kotlin Programming Language</a></div>
+<div>[0] <a href="http://kotlin.jetbrains.org">Kotlin Programming Language</a></div>
 <div>[1] <a href="http://www.gradle.org">The Gradle Build Tool</a></div>
 <div>[2] <a href="http://confluence.jetbrains.com/display/Kotlin/Kotlin+Build+Tools">Kotlin Build Tools</a></div>
 <div>[3] <a href="https://github.com/JetBrains/kotlin-examples/tree/master/gradle/android-mixed-java-kotlin-project">Github Mixed Java-Kotlin Android Project</a></div>
