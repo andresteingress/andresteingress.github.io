@@ -7,7 +7,7 @@ permalink:        /:year/:month/:day/:title
 
 # Setup
 title:            Blog
-tagline:          'Groovy, Grails, Java, Stuff. Mostly.'
+tagline:          'JVM Stuff.'
 description:      'Andre Steingress'
 url:              http://blog.andresteingress.com
 twitter:          asteingr
