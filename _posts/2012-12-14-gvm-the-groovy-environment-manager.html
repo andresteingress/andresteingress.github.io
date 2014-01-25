@@ -21,13 +21,13 @@ At the time of writing, GVM namely supports Groovy, Grails, Griffon, Gradle and 
 
 The installation is actually a single <tt>curl</tt> command-line call. Open your command-line and type the following line:
 
-[sourcecode]
+{% highlight bash %} 
 curl -s get.gvmtool.net | bash
-[/sourcecode]
+{% endhighlight %}
 
 the following output should indicate a successful installation
 
-[sourcecode]
+{% highlight bash %} 
 Thanks for using                                                     
                                                                      
 _____/\\\\\\\\\\\\__/\\\________/\\\__/\\\\____________/\\\\_        
@@ -51,7 +51,7 @@ Installing gvm scripts...
 Creating candidate directories...
 Attempting to update bash profile...
 All done!
-[/sourcecode]
+{% endhighlight %}
 
 Once this is done and you restart the terminal, the <tt>gvm</tt> script should be available in your path.
 
@@ -59,17 +59,17 @@ Once this is done and you restart the terminal, the <tt>gvm</tt> script should b
 
 Once the <tt>gvm</tt> command is available, we can call <tt>gvm help</tt> to see an overview of the supported commands and arguments:
 
-[sourcecode]
+{% highlight bash %} 
 Usage: gvm &lt;command&gt; &lt;candidate&gt; [version]
 
    command    :  install, uninstall, list, use, current, version, default, selfupdate, broadcast or help
    candidate  :  groovy, grails, griffon, gradle, vert.x
    version    :  optional, defaults to latest stable if not provided
-[/sourcecode]
+{% endhighlight %}
 
 Now let's say we wanted to install multiple Groovy versions. With GVM this ain't no rocket science anymore. To install the most current version of Groovy (or one of the other supported software kits), you have to execute
 
-[sourcecode]
+{% highlight bash %} 
 gvm install groovy
 
 Downloading: groovy 2.0.5
@@ -83,22 +83,22 @@ Do you want to use groovy 2.0.5 now? (Y/n): Y
 
 groovy -version
 Groovy Version: 2.0.5 JVM: 1.6.0_37 Vendor: Apple Inc. OS: Mac OS X
-[/sourcecode]
+{% endhighlight %}
 
 To install another version of the Groovy programming language, we just have to append the appropriate version number:
 
-[sourcecode]
+{% highlight bash %} 
 gvm install groovy 1.8.8
-[/sourcecode]
+{% endhighlight %}
 
 And now comes the crux: switching between Groovy, Grails, Griffon, Gradle or Vert.x versions is done with a single line in the command-line:
 
-[sourcecode]
+{% highlight bash %} 
 gvm use groovy 1.8.8
 
 groovy -version
 Groovy Version: 1.8.8 JVM: 1.6.0_37 Vendor: Apple Inc. OS: Mac OS X
-[/sourcecode]
+{% endhighlight %}
 
 <h3>Conclusion</h3>
 
