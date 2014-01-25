@@ -149,7 +149,7 @@ dependencies {
 
 When running <code>gradle tasks</code> we can have a look at all tasks this build script offers for execution:
 
-[sourcecode]
+{% highlight bash %} 
 gradle tasks
 :tasks
 
@@ -197,7 +197,7 @@ To see all tasks and more detail, run with --all.
 BUILD SUCCESSFUL
 
 Total time: 4.212 secs
-[/sourcecode]
+{% endhighlight %}
 
 Of course there is a way to define custom tasks in Gradle, we will have a look at when we implement uploading to the Maven repository. If you want to know more about it in advance, take a look at [<a href="http://www.gradle.org/0.9.1/docs/userguide/">7</a>].
 
@@ -339,7 +339,7 @@ As you can see in the code sample, the tasks are both of type <code>Jar</code>. 
 
 Executing <code>gradle uploadArchives</code> now leads to the following result:
 
-[sourcecode]
+{% highlight bash %} 
 :compileJava UP-TO-DATE
 :compileGroovy UP-TO-DATE
 :processResources UP-TO-DATE
@@ -372,7 +372,7 @@ Transferring 1K from remote
 Uploaded 1K
 
 BUILD SUCCESSFUL
-[/sourcecode]
+{% endhighlight %}
 
 The source files, javadoc and binary are now signed and uploaded to the staging repository. This is exactly what we've been striving for. We're done for now.
 
