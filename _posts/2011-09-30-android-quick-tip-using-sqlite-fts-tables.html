@@ -132,21 +132,21 @@ public class DictionaryRepository {
 
 As can be seen from the example above, the FTS3 supports not even unqualified queries like
 
-[sourcecode language="Sql"]
+{% highlight sql %} 
 SELECT * FROM words_fts WHERE words_fts MATCH 'company';
-[/sourcecode]
+{% endhighlight %}
 
 but also qualified queries identifying the query columns by <tt>column: columnName</tt>
 
-[sourcecode language="Sql"]
+{% highlight sql %} 
 SELECT * FROM words_fts WHERE words_fts MATCH 'description: company';
-[/sourcecode]
+{% endhighlight %}
 
 and the <tt>*</tt> operator
 
-[sourcecode language="Sql"]
+{% highlight sql %} 
 SELECT * FROM words_fts WHERE words_fts MATCH 'description: comp*';
-[/sourcecode]
+{% endhighlight %}
 
 A complete guide on FTS full-text queries can be found at [<a href="http://www.SQLite.org/fts3.html#section_3">2</a>].
 
