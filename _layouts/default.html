@@ -46,6 +46,12 @@
             hljs.highlightBlock(e)
           }
         );
+
+        $('button.category').click(function() {
+           var content = $(this).html();
+           window.open('/categories/' + encodeURIComponent(content) + '/', '_self');
+           return true;
+        });
       });
     </script>
   </body>

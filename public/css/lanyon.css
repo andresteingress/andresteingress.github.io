@@ -327,6 +327,10 @@ a.sidebar-nav-item:focus {
   margin-bottom: 1rem;
   color: #9a9a9a;
 }
+.post-date-text {
+  vertical-align: middle;
+  margin-right: .5rem;
+}
 
 .post p {
   text-align: justify;
