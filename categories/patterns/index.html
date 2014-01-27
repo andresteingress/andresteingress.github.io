@@ -57,7 +57,7 @@
 <!-- Toggleable sidebar -->
 <div class="sidebar" id="sidebar">
   <div class="sidebar-item">
-    <p>Andre Steingress</p>
+    <p><a href="/contact/">Andre Steingress</a></p>
   </div>  
 
   <nav class="sidebar-nav">
@@ -202,6 +202,7 @@
     
       
     
+    <div class="sidebar-nav-item">Social</div>
     <a class="sidebar-nav-item" href="https://www.twitter.com/asteingr"><i class="fa fa-twitter fa-fw"></i> Twitter</a>
     <a class="sidebar-nav-item" href="https://github.com/andresteingress"><i class="fa fa-github-square fa-fw"></i> GitHub</a>
     <a class="sidebar-nav-item" href="http://stackoverflow.com/users/44963/andre-steingress"><i class="fa fa-stack-overflow fa-fw"></i> Stackoverflow</a>
@@ -415,6 +416,10 @@
            var content = $(this).html();
            window.open('/categories/' + encodeURIComponent(content) + '/', '_self');
            return true;
+        });
+
+        $(window).load(function() {
+          $("body").show();
         });
       });
     </script>
