@@ -52,6 +52,10 @@
            window.open('/categories/' + encodeURIComponent(content) + '/', '_self');
            return true;
         });
+
+        $(window).load(function() {
+          $("body").fadeIn(1500);
+        });
       });
     </script>
   </body>

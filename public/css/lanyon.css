@@ -34,6 +34,10 @@
  * Update the foundational and global aspects of the page.
  */
 
+body {
+  display: none;
+}
+
 /* Prevent scroll on narrow devices */
 html,
 body {
