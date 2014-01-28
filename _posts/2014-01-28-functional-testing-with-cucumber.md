@@ -3,6 +3,7 @@ layout: post
 title: Grails Tests with Cucumber
 categories:
 - grails
+- groovy
 - testing
 - cucumber
 tags: []
