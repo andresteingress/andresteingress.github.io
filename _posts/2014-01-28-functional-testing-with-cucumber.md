@@ -189,6 +189,10 @@ Geb uses the `at` verifier to determine whether the login page is shown or not.
 
 We're done with our first Cucumber specification!
 
+### Update
+
+I created a [blank Grails 2.1.5 project](https://github.com/andresteingress/grails-cucumber-example) and added the example above including an initial Geb and Cucumber configuration that should help getting things up and running.
+
 ### Conclusion
 
 The Grails Cucumber plugin adds Cucumber-JVM support to Grails applications. Together with Geb, Cucumber can be used to create BDD-style specifications that in turn are executed at run-time using the Groovy web testing library underneath.
