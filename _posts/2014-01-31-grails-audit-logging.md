@@ -16,14 +16,14 @@ I came across the [Grails Audit-Loggin Plugin](http://grails.org/plugin/audit-lo
 - configuration of the included fields was needed (instead of the excluded ones)
 - usage of Hibernate stateless sessions for writing the AuditLog domain objects (better performance)
 - some things seemed to be broken after writing the first integration tests, e.g. keeping the correct version number in the audit log
-- more object-oriented structure to enable encapsulated unit tests and easier writing for integration tests
-- last but not least: we wanted full control over the ongoing development of the plugin because the audit logging will be used in an important application component
+- more object-oriented structure to enable encapsulated unit tests and easier writing of integration tests
+- last but not least: we wanted full control over the ongoing development of the plugin because the audit logging will be an important functionality of the application
 
-In a nutshell: we started a new plugin that was initially based on the Grais Audit-Plugin to get some core components (like the `AuditLogListener`) with no costs.
+In a nutshell: we started a new plugin that was initially based on the Grais Audit-Plugin to get some core components (like the `AuditLogListener`) without starting completely from scratch.
 
 ### Grails Hibernate Audit Log Plugin
 
-That's how we named the new plugin. Right now the audit log mechanism registers itself only by the `hibernateDatastore`, no other datastores are supported. Besides completely changing the interal structure of the plugin, we threw some features over board we hadn't any use for. We thought it would be better to keep it simple instead of preparing for complex scenarios we didn't see any use for. 
+That's how we named the new plugin. Right now the audit log mechanism registers itself only by the `hibernateDatastore`, no other datastores are supported. Besides completely changing the interal structure of the plugin, we threw some features over board we hadn't any use for. We thought it would be better to keep it simple instead of preparing for complex scenarios we didn't see any use for in our application. 
 
 As the time of writing, the plugin supports the following configuration variables:
 
@@ -44,7 +44,7 @@ auditLog.tablename = null        // custom AuditLog table name, defaults to "aud
 auditLog.truncateLength = null   // maximum length for property values after String conversion
 ```
 
-The `auditLog.disabled` switch is global to turn off audit logging completely. If it is `false` an additional step is needed to enable audit logging for a domain class:
+The `auditLog.disabled` switch is global one to turn off audit logging for the entire application. If it is `false` an additional step is needed to enable audit logging for a particular domain class:
 
 ```groovy
 class Person {
@@ -74,11 +74,11 @@ class Person {
 }
 ```
 
-As a default setting, all domain class properties are enabled for audit logging as long as `include` (or `defaultInclude` in the `Config.groovy`) or `ignore` (or `defaultIgnore` in `Config.groovy`) aren't specified int the `auditable` map.
+As a default setting all domain class properties are enabled for audit logging as long as `include` (or `defaultInclude` in the `Config.groovy`) or `ignore` (or `defaultIgnore` in `Config.groovy`) aren't specified in the `auditable` map. In the case of `include` only the specified properties are logged, in the case of `exclude` all other persistent properties are logged.
 
 ### At runtime
 
-Once the audit log is enabled for a domain class, all insert/update/delete operations will be kept track of in the `AuditLogEvent` table that comes as GORM domain class that is supplied by the plugin. For every property value change, a new `AuditLogEvent` is created. Here are the domain class properties:
+Once the audit log is enabled for a domain class all insert/update/delete operations will be kept track of by the plugin in the `audit_log` table. Actually the table comes as GORM domain class `AuditLogEvent` that is supplied by the plugin. For every property values that changes a new `AuditLogEvent` is created. Here are the domain class properties:
 
 ```groovy
 class AuditLogEvent {
@@ -97,9 +97,9 @@ class AuditLogEvent {
 }
 ```
 
-All properties should be self speaking except for the `actor` and the `uri` properties. The `actor` property has been introduced to keep track of the principal (name) that triggered the event. In the configuration options above the `actorClosure` was shown that can be specified to retrieve the principal name from the HTTP request or session. The `uri` contains the web URI that was used to initially cause the event.
+All properties should be self speaking except for the `actor` and the `uri` properties (I guess). The `actor` property has been introduced to keep track of the principal (name) that triggered the event. In the configuration options above the `actorClosure` was shown that can be specified to retrieve the principal name from the HTTP request or session. The `uri` contains the web URI that was used to initially trigger the domain class change.
 
-Here is a testcase method that shows how the `AuditLogEvent` will be created when a new `Person` object is saved to the DB:
+Here is a testcase method that shows how the `AuditLogEvent` will be filled when a new `Person` object is saved to the DB:
 
 ```groovy
 @Test
