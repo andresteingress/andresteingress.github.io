@@ -19,7 +19,7 @@ I came across the [Grails Audit-Loggin Plugin](http://grails.org/plugin/audit-lo
 - more object-oriented structure to enable encapsulated unit tests and easier writing of integration tests
 - last but not least: we wanted full control over the ongoing development of the plugin because the audit logging will be an important functionality of the application
 
-In a nutshell: we started a new plugin that was initially based on the Grais Audit-Plugin to get some core components (like the `AuditLogListener`) without starting completely from scratch.
+In a nutshell: we started a new plugin that was initially based on the Grails Audit-Plugin to get some core components (like the `AuditLogListener`) without starting completely from scratch.
 
 ### Grails Hibernate Audit Log Plugin
 
@@ -130,6 +130,6 @@ The plugin is available at [Github](https://github.com/andresteingress/grails-hi
 
 ### Conclusion
 
-The Grails _Hibernate Audit Log Plugin_ can be used for audit logging changes in Grails domain classes. Every domain class under target needs to specify a static `auditable` property that is either `true` or contains a `Map` of local settings. The plugin is currently only accessible [via Github](https://github.com/andresteingress/grails-hibernate-auditlog) but a stable version is planned to be released at the Grais plugin portal.
+The Grails _Hibernate Audit Log Plugin_ can be used for audit logging changes in Grails domain classes. Every domain class under target needs to specify a static `auditable` property that is either `true` or contains a `Map` of local settings. The plugin is currently only accessible [via Github](https://github.com/andresteingress/grails-hibernate-auditlog) but a stable version is planned to be released at the Grails plugin portal.
 
 
