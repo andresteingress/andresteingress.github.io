@@ -53,7 +53,7 @@ This makes testing my `AttachmentService` very slick:
 class AttachmentServiceSpec extends Specification {
 
     @Rule
-    TemporaryFolder temporaryFolder = new TemporaryFolder()
+    TemporaryFolder temporaryFolder // see Peter's comment below :-) = new TemporaryFolder()
 
     def "load the persistent file for a given attachment"() {
         setup:
