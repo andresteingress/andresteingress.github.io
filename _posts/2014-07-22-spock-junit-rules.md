@@ -18,7 +18,7 @@ One option I've seen quite a few times is to either use `File#createTemp` or use
 
 ### JUnit Rules
 
-JUnit provides a way to intercept the test suite and test method execution by providing the concept of rules. A rule implementation can intercept test method execution and alter the behaviour of these tests, or add cleanup work as it was done in `@Before`, `@After`, `@BeforeClass` and `@AfterClass` or Spock's `setup` and `cleanup` methods. For a particular test case, an instance of the rule implementation must be available via a public instance field and it must be annotated with `@Rule`.
+JUnit provides a way to intercept the test suite and test method execution by providing the concept of rules. A rule implementation can intercept test method execution and alter the behaviour of these tests, or add cleanup work as it was done in `@Before`, `@After`, `@BeforeClass` and `@AfterClass` or Spock's `setup`, `cleanup`, `setupSpec` and `cleanupSpec` methods. For a particular test case, an instance of the rule implementation must be available via a public instance field and it must be annotated with `@Rule`.
 
 For example, the `TestName` rule implementation can be used to have access to the test case name in a test method at runtime.
 
