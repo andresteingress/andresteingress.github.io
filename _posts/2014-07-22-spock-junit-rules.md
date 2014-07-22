@@ -14,7 +14,7 @@ I recently had to implement a file upload for a Grails application. In this appl
 
 As it is in the nature of file uploads, the Spock specification needs to create quite a few temporary files and folders.
 
-One option I've seen quite a few times is to either use `File#createTemp` or use JDK 7's `Files#createTempDirectory/Files#createTempFile` methods. Both have the disadvantage that cleanup must be done manually and code has to be added.
+One option I've seen quite a few times is to either use `File#createTemp` or use JDK 7's `Files#createTempDirectory/Files#createTempFile` methods. Both have the disadvantage of the intial setup and cleanup, which results in helper code that is added to the test and distracts from the real test code.
 
 ### JUnit Rules
 
