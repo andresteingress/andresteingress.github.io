@@ -14,9 +14,13 @@ layout: default
     <div class="post-date">
       <span class="post-date-text">{{ post.date | date_to_string }}</span>
 
+
       {% for tag in post.categories %}
         <button class="button-xsmall button-blue pure-button category">{{ tag }}</button>
       {% endfor %}
+
+      <span class="post-comments-text"><i class="fa fa-comment"></i> <a href="{{site.url}}{{post.url}}/#disqus_thread"></a></span>
+
     </div>
 
     {{ post.content }}

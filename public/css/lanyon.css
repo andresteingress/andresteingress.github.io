@@ -331,6 +331,15 @@ a.sidebar-nav-item:focus {
   vertical-align: middle;
   margin-right: .5rem;
 }
+.post-comments-text {
+  margin-top:.3rem;
+  float: right;
+  vertical-align: middle;
+  font-size: .7rem;
+}
+.post-comments-text a {
+  color: #9a9a9a;
+}
 
 .post p {
   text-align: justify;
