@@ -196,4 +196,4 @@ The method targeted by `OnItemSelected` may come with any parameters also found 
 
 I used `Dagger` and `Butterknife` in one of my latest Android projects and I won't go without them anymore. Especially `Butterknife` comes in very handy as it allows to get rid of view clue code that is needed to get references to UI view elements.
 
-It should be noted that there is also the `AndroidAnnotations` project that comes with an even richer set of annotations to do basically everything with annotations. In my current projects, our needs were totally satisfied with the `Butterknife` feature set, so I can't say anything about `AndroidAnnotations` in depth. 
+It should be noted that there is also the [AndroidAnnotations](http://androidannotations.org/) project that comes with an even richer set of annotations to do basically everything with annotations. In my current projects, our needs were totally satisfied with the `Butterknife` feature set, so I can't say anything about `AndroidAnnotations` in depth. 
