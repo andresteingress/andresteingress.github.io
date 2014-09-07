@@ -1,6 +1,7 @@
 ---
 layout: post
 title: Android Dependency Injection
+categories:
 - android
 - java
 tags: []
