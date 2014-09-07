@@ -1,7 +1,6 @@
 ---
 layout: post
 title: Android Dependency Injection
-categories:
 - android
 - java
 tags: []
@@ -57,7 +56,7 @@ public class ApplicationModule {
 }
 ```
 
-In the case above, the module definition provides a REST interface called `AppConnector`. Therefore, it configures an `OkHttpClient` instance and the REST endpoint. At runtime, the `ApplicationModule` needs to be instantiated and the dependency object graph defined by the module needs to be bootstrapped. This can be done ín a custom `Application` implementation:
+In the case above, the module definition provides a REST interface called `AppConnector`. Therefore, it configures an `OkHttpClient` instance and the REST endpoint. At runtime, the `ApplicationModule` needs to be instantiated and the dependency object graph defined by the module needs to be bootstrapped. This can be done in a custom `Application` implementation:
 
 ```java
 public class Application extends android.app.Application {
@@ -110,7 +109,7 @@ public class LoginActivity extends BaseActivity {
 
 Of course, Dagger also comes with more advanced conecepts and features. But with the features shown above, you can already start to use dependency injection for services, repositories and other patterns.
 
-## VDI with ButterFly
+## VDI with Butterknife
 
 When developing on Android, glue code to set instance variables which are all `View` descendants is frequently needed:
 
@@ -195,6 +194,6 @@ The method targeted by `OnItemSelected` may come with any parameters also found 
 
 ### Conclusion
 
-I used `Dagger` and `ButterKnife` in one of my latest Android projects and I won't go without them anymore. Especially `ButterKnife` comes in very handy as it allows to get rid of view clue code that is needed to get references to UI view elements.
+I used `Dagger` and `Butterknife` in one of my latest Android projects and I won't go without them anymore. Especially `Butterknife` comes in very handy as it allows to get rid of view clue code that is needed to get references to UI view elements.
 
-It should be noted that there is also the `AndroidAnnotations` project that comes with an even richer set of annotations to do basically everything with annotations. In my current projects, our needs were totally satisfied with the `ButterKnife` feature set, so I can't say anything about `AndroidAnnotations` in depth. 
+It should be noted that there is also the `AndroidAnnotations` project that comes with an even richer set of annotations to do basically everything with annotations. In my current projects, our needs were totally satisfied with the `Butterknife` feature set, so I can't say anything about `AndroidAnnotations` in depth. 
