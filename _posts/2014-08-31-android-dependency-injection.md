@@ -135,7 +135,7 @@ public class LoginActivity extends Activity {
 }
 ```
 
-View dependecy injection is a way to get rid of clue code that is needed to link instance variables with resources from the layout, and to speed up development. One library that is determined to be used exactly for this case is [Butterknife](http://jakewharton.github.io/butterknife/). It comes with annotations that can be used to inject views, but also to annotated methods which at compile-time are transformed to listener instances.
+View dependecy injection is a way to get rid of glue code that is needed to link instance variables with resources from the layout, and to speed up development. One library that is determined to be used exactly for this case is [Butterknife](http://jakewharton.github.io/butterknife/). It comes with annotations that can be used to inject views, but also to annotated methods which at compile-time are transformed to listener instances.
 
 But let's first of all have a look at view injection. Actually, it is pretty simple, the annotation to use is `@InjectView`. It needs a single annotation parameter which is the resource ID of the targeted view:
 
@@ -194,6 +194,6 @@ The method targeted by `OnItemSelected` may come with any parameters also found 
 
 ### Conclusion
 
-I used `Dagger` and `Butterknife` in one of my latest Android projects and I won't go without them anymore. Especially `Butterknife` comes in very handy as it allows to get rid of view clue code that is needed to get references to UI view elements.
+I used `Dagger` and `Butterknife` in one of my latest Android projects and I won't go without them anymore. Especially `Butterknife` comes in very handy as it allows to get rid of view glue code that is needed to get references to UI view elements.
 
 It should be noted that there is also the [AndroidAnnotations](http://androidannotations.org/) project that comes with an even richer set of annotations to do basically everything with annotations. In my current projects, our needs were totally satisfied with the `Butterknife` feature set, so I can't say anything about `AndroidAnnotations` in depth. 
