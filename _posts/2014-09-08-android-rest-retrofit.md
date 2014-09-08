@@ -1,6 +1,7 @@
 ---
 layout: post
 title: REST Interfaces and Android
+categories:
 - android
 - java
 tags: []
