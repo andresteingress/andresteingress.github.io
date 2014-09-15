@@ -1,6 +1,6 @@
 ---
 layout: post
-title: REST Interfaces and Android
+title: The Google I/O App
 categories:
 - android
 - java
@@ -9,38 +9,11 @@ status: publish
 type: post
 published: true
 ---
-As I already told in my last blog post, I lately discovered this [very good collection of open source projects](http://square.github.io/) from [Square Inc.](https://squareup.com/), a commercial payment service. 
+A while ago I came across the Google I/O App in one of the Android Developers [blog post](http://android-developers.blogspot.co.at/2014/07/google-io-2014-app-source-code-now.html). I decided to do a bit of analyzing this app, in order to gain some stuff I can again reuse in my apps. This blog post sort of documents my findings and what I found interesting.
 
-One project among their released open source projects that raised my interest was also [Retrofit](https://github.com/square/retrofit). Retrofit allows to access REST web interfaces via type-safe Java types and annotations.
+### `build.gradle`
 
-### Configuring the `RestAdapter`
 
-Before we can declare our interface and start making REST requests, we need to configure the so-called `RestAdapter`. It allows to change various aspects from HTTP settings to adding custom converters for the content found in HTTP responses (in our case, the REST interface returned JSON) from the accessed web service.
-
-I put this setup code into our Dagger application module:
-
-```java
-@Provides
-@Singleton
-public AppConnector providesAppConnector() {
-
-  OkHttpClient okHttpClient = new OkHttpClient();
-  okHttpClient.setConnectTimeout(ApplicationConstants.HTTP_TIMEOUT, TimeUnit.MILLISECONDS);
-  okHttpClient.setWriteTimeout(ApplicationConstants.HTTP_TIMEOUT, TimeUnit.MILLISECONDS);
-  okHttpClient.setReadTimeout(ApplicationConstants.HTTP_TIMEOUT, TimeUnit.MILLISECONDS);
-
-  RestAdapter restAdapter = new RestAdapter.Builder()
-    .setEndpoint(application.getString(R.string.appEndPoint))
-    .setLogLevel(RestAdapter.LogLevel.FULL)
-    .setClient(new OkClient(okHttpClient))
-    .setConverter(new GsonConverter(gson))
-    .build();
-
-    return restAdapter.create(AppConnector.class);
-}
-```
-
-Usually the `RestAdapter` defaults to parsing JSON responses (utilizing Google's GSON library), but in our case we needed to adapt the pre-defined GSON converter slightly, this shouldn't irritate in this example. The endpoint is the base URL which is used for all the REST requests. The HTTP client in use is [OkHttpClient](http://square.github.io/okhttp/), another great project from Square, actually worth another blog post. It supports loading content from multiple IPs if single hosts aren't available for some reason and also does HTTP response caching based on the given response headers, if so configured. That's it for our Retrofit configuration.
 
 ### Declaring the Java REST interface
 
