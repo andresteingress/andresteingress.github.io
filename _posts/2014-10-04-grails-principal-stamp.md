@@ -32,10 +32,9 @@ up with:
 
 
 ```groovy
-
 @Log4j
 class PrincipalPersistenceListener extends AbstractPersistenceEventListener {
-    
+
     public static final String PROPERTY_PRINCIPAL_UPDATED = 'userUpdated'
     public static final String PROPERTY_PRINCIPAL_CREATED = 'userCreated'
 
@@ -54,6 +53,10 @@ class PrincipalPersistenceListener extends AbstractPersistenceEventListener {
             switch (event.eventType) {
                 case EventType.PreInsert:
                     setPrincipalProperties(entityObject, true)
+                    break
+
+                case EventType.Validation:
+                    setPrincipalProperties(entityObject, entityObject.id == null)
                     break
 
                 case EventType.PreUpdate:
@@ -93,8 +96,9 @@ class PrincipalPersistenceListener extends AbstractPersistenceEventListener {
     boolean supportsEventType(Class<? extends ApplicationEvent> eventType) {
         return eventType.isAssignableFrom(PreInsertEvent) ||
                 eventType.isAssignableFrom(PreUpdateEvent) ||
-                eventType.isAssignableFrom(PreDeleteEvent)
-    }    
+                eventType.isAssignableFrom(PreDeleteEvent) ||
+                eventType.isAssignableFrom(ValidationEvent)
+    }
 }
 ```
 
