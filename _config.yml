@@ -1,7 +1,7 @@
 # Dependencies
 markdown: 		  redcarpet
 
-highlighter:      rouge
+highlighter:      pygments
 
 # Permalinks
 permalink:        /:year/:month/:day/:title
