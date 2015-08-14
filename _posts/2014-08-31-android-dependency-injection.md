@@ -23,7 +23,7 @@ Let's have a look at the more familiar pattern of injecting Java objects/beans l
 
 Dagger is a light-weight dependency injection library that comes with support for Java's JSR-330 annotations like `@Inject` or `@Singleton` . The creation of object instances that need to be injected at runtime are created in a so-called module definition:
 
-```java
+</code></pre>java
 @Module
 public class ApplicationModule {
 
@@ -55,11 +55,11 @@ public class ApplicationModule {
         return restAdapter.create(AppConnector.class);
     }
 }
-```
+</code></pre>
 
 In the case above, the module definition provides a REST interface called `AppConnector`. Therefore, it configures an `OkHttpClient` instance and the REST endpoint. At runtime, the `ApplicationModule` needs to be instantiated and the dependency object graph defined by the module needs to be bootstrapped. This can be done in a custom `Application` implementation:
 
-```java
+</code></pre>java
 public class Application extends android.app.Application {
 
     private ObjectGraph objectGraph;
@@ -75,11 +75,11 @@ public class Application extends android.app.Application {
         return objectGraph;
     }
 }
-```
+</code></pre>
 
 In order to actually trigger the dependency injection for an activity, `ObjectGraph#inject()` needs to be called. This is typically done inside a common activity base class:
 
-```java
+</code></pre>java
 public abstract class BaseActivity extends FragmentActivity {
 
     @Override
@@ -89,11 +89,11 @@ public abstract class BaseActivity extends FragmentActivity {
         ((Application) getApplication()).getObjectGraph().inject(this);
     }
 }
-```
+</code></pre>
 
 Once this initial setup is done, activities can be injected with the objects created in the module:
 
-```java
+</code></pre>java
 public class LoginActivity extends BaseActivity {
 
     @Inject
@@ -106,7 +106,7 @@ public class LoginActivity extends BaseActivity {
         appConnector.doSomething(...);
     }
 }
-```
+</code></pre>
 
 Of course, Dagger also comes with more advanced conecepts and features. But with the features shown above, you can already start to use dependency injection for services, repositories and other patterns.
 
@@ -114,7 +114,7 @@ Of course, Dagger also comes with more advanced conecepts and features. But with
 
 When developing on Android, glue code to set instance variables which are all `View` descendants is frequently needed:
 
-```java
+</code></pre>java
 public class LoginActivity extends Activity {
 
     private EditText username;
@@ -134,13 +134,13 @@ public class LoginActivity extends Activity {
 
     // ...
 }
-```
+</code></pre>
 
 View dependecy injection is a way to get rid of glue code that is needed to link instance variables with resources from the layout, and to speed up development. One library that is determined to be used exactly for this case is [Butterknife](http://jakewharton.github.io/butterknife/). It comes with annotations that can be used to inject views, but also to annotated methods which at compile-time are transformed to listener instances.
 
 But let's first of all have a look at view injection. Actually, it is pretty simple, the annotation to use is `@InjectView`. It needs a single annotation parameter which is the resource ID of the targeted view:
 
-```java
+</code></pre>java
 public class LoginActivity extends BaseActivity {
 
     @InjectView(R.id.username)
@@ -151,11 +151,11 @@ public class LoginActivity extends BaseActivity {
 
     // ...
 }
-```
+</code></pre>
 
 No more code needed for manually retrieving and casting the view instances in the `onCreate` Activity callback. One little detail that is hidden here is the call to `ButterKnife.inject(this)` which actually causes Butterknife to inject all the instance fields with the target views at runtime. I do the calls to `inject` usually in my `BaseActivity` which is shared across all activities in my project:
 
-```java
+</code></pre>java
 public abstract class BaseActivity extends FragmentActivity {
 
     @Override
@@ -167,11 +167,11 @@ public abstract class BaseActivity extends FragmentActivity {
 
     // ...
 }
-```
+</code></pre>
 
 Among other nice Butterknife features, I really like the annotations for various listeners, take `@OnClick` for example. This is a method level annotation that annotates methods which are at compile-time transformed/wrapped with an actual listener implementation:
 
-```java
+</code></pre>java
 public class LoginActivity extends Activity {
 
     @OnClick(R.id.btnLogin)
@@ -180,16 +180,16 @@ public class LoginActivity extends Activity {
         // ...
     }
 }
-```
+</code></pre>
 
 Or suppose the layout has a Spinner and we want to react when an item is selected:
 
-```java
+</code></pre>java
 @OnItemSelected(R.id.mobilePrefix)
 public void mobilePrefixSelected(int position) {
     // ...
 }
-```
+</code></pre>
 
 The method targeted by `OnItemSelected` may come with any parameters also found in the actual listener interface.
 

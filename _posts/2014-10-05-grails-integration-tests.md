@@ -26,7 +26,7 @@ One thing I love about Spock is that it comes out-of-the-box with [great support
 
 We do this with the help of the Groovy Meta-Object protocol (MOP), that is, by altering the underlying meta-class. The next example shows how `getCurrentUser` is overwritten, as we do want to stub out the [Spring Security](http://grails.org/plugin/spring-security-core) part from the `StatisticsService`.
 
-```groovy
+<pre><code class="language-groovy">
 StatisticsServiceIntegrationTest extends IntegrationSpec {
     
     StatisticsService statisticsService
@@ -45,24 +45,24 @@ StatisticsServiceIntegrationTest extends IntegrationSpec {
 
     }    
 }
-```
+</code></pre>
 
 Altering classes at runtime is a nice feature, but it can also become confusing when you don't know about the side-effects it may cause. For integration tests, changes to the meta-class won't be resetted, so once you do changes to a meta-class (we are working with [per-instance meta-class](http://groovy.codehaus.org/Per-Instance+MetaClass) changes, the same is even more true for global meta-class changes) those will be persistent through the entire test.
 
 To solve that, we added a helper method that allows to revoke meta-class changes inbetween test runs:
 
-```groovy
+<pre><code class="language-groovy">
 public static void revokeMetaClassChanges(Class type, def instance = null)  {
     GroovySystem.metaClassRegistry.removeMetaClass(type)
     if (instance != null)  {
         instance.metaClass = null
     }
 }
-```
+</code></pre>
 
 And applied it like this:
 
-```groovy
+<pre><code class="language-groovy">
 StatisticsServiceIntegrationTest extends IntegrationSpec {
     
     StatisticsService statisticsService
@@ -84,7 +84,7 @@ StatisticsServiceIntegrationTest extends IntegrationSpec {
 
     }    
 }
-```
+</code></pre>
 
 This actually sets back the meta-class code and the service class is again un-altered when executing the next feature method. 
 
@@ -92,7 +92,7 @@ Be warned.
 
 Meta-class overriding can become tricky. One thing we came across multiple times is that you can't replace methods of super classes being called from super class methods. Here is a simplified example:
 
-```groovy
+<pre><code class="language-groovy">
 class A {
     def a(){
        a2()
@@ -116,7 +116,7 @@ b.metaClass.a2 = {
 }
 
 b.b(); // still prints 'In class A'
-```
+</code></pre>
 
 If we wanted to stub the implementation of `b` inside our test code, this wouldn't work, as `a` and `a2` are implemented in the same class `A` and therefore the method call won't be intercepted by a per-instance change to instance `b`. This now might seem obvious, but we had a hard time tracking this down.
 
@@ -128,7 +128,7 @@ Lately I became aware that our `revokeMetaClassChanges` is actually "part" of Sp
 
 The code behind it works [a bit differently](https://github.com/spockframework/spock/blob/391f3d8c5c557ce0de1e024676fb70ef71cc0d3f/spock-core/src/main/java/org/spockframework/runtime/extension/builtin/ConfineMetaClassChangesInterceptor.java) but the meaning is the same; it can be used on methods or classes to rollback meta-class changes declaratively:
 
-```groovy
+<pre><code class="language-groovy">
 @ConfineMetaClassChanges([StatisticsService])
 StatisticsServiceIntegrationTest extends IntegrationSpec {
     
@@ -148,7 +148,7 @@ StatisticsServiceIntegrationTest extends IntegrationSpec {
 
     }    
 }
-```
+</code></pre>
 
 Speaking of Spock extensions. It's definitely worth to have a look at [the chapter on Spock Extensions](http://spock-framework.readthedocs.org/en/latest/extensions.html) in the documentation. There is lots of great stuff already available (and coming in Spock 1.0).
 
