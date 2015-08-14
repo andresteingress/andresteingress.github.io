@@ -19,7 +19,7 @@ Before we can declare our interface and start making REST requests, we need to c
 
 I put this setup code into our Dagger application module:
 
-</code></pre>java
+<pre><code class="language-groovy">
 @Provides
 @Singleton
 public AppConnector providesAppConnector() {
@@ -46,7 +46,7 @@ Usually the `RestAdapter` defaults to parsing JSON responses (utilizing Google's
 
 Once the `RestAdapter` is available, it can be used to instantiate proxy implementations for your Java REST interfaces. So let's first create a simple REST Java interface:
 
-</code></pre>java
+<pre><code class="language-groovy">
 public interface AppConnector {
 
   @Headers("Cache-Control: max-age=14400")
@@ -60,7 +60,7 @@ The example above is taken from one of our production apps (with only a little c
 
 The example above actually makes a synchronous request. In fact, we do use asynchronous requests in our application. Going from synchronous to asynchronous requests only needs a little change:
 
-</code></pre>java
+<pre><code class="language-groovy">
 public interface AppConnector {
 
   @Headers("Cache-Control: max-age=14400")

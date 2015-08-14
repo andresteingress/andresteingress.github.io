@@ -22,7 +22,7 @@ JUnit provides a way to intercept the test suite and test method execution by pr
 
 For example, the `TestName` rule implementation can be used to have access to the test case name in a test method at runtime.
 
-</code></pre>java
+<pre><code class="language-groovy">
 public class NameRuleTest {
   @Rule
   public TestName name = new TestName();

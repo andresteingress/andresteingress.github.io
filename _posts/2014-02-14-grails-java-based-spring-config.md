@@ -164,7 +164,7 @@ class ReactorConfiguration {
 
 As can be seen above, the `queue.name` and `queue.backlog` settings in the `app.properties` file can be accessed via the `org.springframework.core.env.Environment` bean. This bean needs to be autowired in our configuration to access the message resources. This shows another impressive feature of Spring's Java-based configuration: `@Configuration` classes are themselves treated as beans. This means we can use for example `@Autowired` to inject beans into our `@Configuration` class. The [Spring documentation](http://docs.spring.io/spring/docs/4.0.2.BUILD-SNAPSHOT/spring-framework-reference/htmlsingle/#beans-annotation-config) shows an even better example:
 
-</code></pre>java
+<pre><code class="language-groovy">
 @Configuration
 public class ServiceConfig {
 
@@ -209,7 +209,7 @@ public static void main(String[] args) {
 
 We can even auto-wire `@Configuration` classes themselves:
 
-</code></pre>java
+<pre><code class="language-groovy">
 @Configuration
 public class ServiceConfig {
 

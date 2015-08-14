@@ -76,7 +76,7 @@ The Google I/O app's main purpose is the give an overview of all the scheduled t
 
 One particular piece of code that shows some Gson usage is the `ConferenceDataHandler`. This handler basically is responsible for parsing most of the JSON data that holds information about the scheduled conference sessions, speakers, etc. Instead of parsing the JSON content directly to an object tree, it registers "handlers" for every JSON property in a map:
 
-</code></pre>java
+<pre><code class="language-groovy">
 mHandlerForKey.put(DATA_KEY_ROOMS, mRoomsHandler = new RoomsHandler(mContext));
 mHandlerForKey.put(DATA_KEY_BLOCKS, mBlocksHandler = new BlocksHandler(mContext));
 mHandlerForKey.put(DATA_KEY_TAGS, mTagsHandler = new TagsHandler(mContext));
@@ -92,7 +92,7 @@ mHandlerForKey.put(DATA_KEY_PARTNERS, mPartnersHandler = new PartnersHandler(mCo
 
 With the registered handlers set up, it parses the JSON response body property by property in `processDataBody`:
 
-</code></pre>java
+<pre><code class="language-groovy">
 private void processDataBody(String dataBody) throws IOException {
     JsonReader reader = new JsonReader(new StringReader(dataBody));
     JsonParser parser = new JsonParser();
@@ -122,7 +122,7 @@ private void processDataBody(String dataBody) throws IOException {
 
 When we have a look at one of the handler classes, let's say at `SessionsHandler`, we will see that it not only encapsulates the code for parsing the session JSON objects, but also code for building so-called "content provider operations". The [`ContentProviderOperation`](http://developer.android.com/reference/android/content/ContentProviderOperation.html) class is a class from the Android SDK that is used to build content provider actions such as inserting, updating or deleting entities stored by a content provider. The handler classes provide methods to directly create content provider operations based on the current state of an entity. E.g. if a session is new, needs to be updated or deleted, its `makeContentProviderOperations` method from the handler class will create the appropriate operation. Let's have a look now how actually parsing JSON is done for the `SessionsHandler`:
 
-</code></pre>java
+<pre><code class="language-groovy">
 @Override
 public void process(JsonElement element) {
     for (Session session : new Gson().fromJson(element, Session[].class)) {
@@ -133,7 +133,7 @@ public void process(JsonElement element) {
 
 The code is quite slick. It uses an array of `Session` model classes as GSON target type and GSON will create the instances and populate the available properties from the JSON values:
 
-</code></pre>java
+<pre><code class="language-groovy">
 public class Session {
     public String id;
     public String url;
@@ -217,7 +217,7 @@ compile 'com.google.apis:google-api-services-plus:+'
 
 to fetch the latest announcements via the `AnnouncementsFetcher` class. Once the announcements are fetched from the Google+ profile, they are stored by the content provider `ScheduleProvider`:
 
-</code></pre>java
+<pre><code class="language-groovy">
 Plus plus = new Plus.Builder(httpTransport, jsonFactory, null)
         .setApplicationName(NetUtils.getUserAgent(mContext))
         .setGoogleClientRequestInitializer(
@@ -273,7 +273,7 @@ The SVG Android project adds support for showing scalable vector graphic files i
 One place to have a look at SVG processing is the `ConferenceDataHandler` implementation, again, a handler class:
 
 
-</code></pre>java
+<pre><code class="language-groovy">
 private void processMapOverlayFiles(Collection<Tile> collection, boolean downloadAllowed) throws IOException, SVGParseException {
     boolean shouldClearCache = false;
     ArrayList<String> usedTiles = Lists.newArrayList();
@@ -330,7 +330,7 @@ The code looks if the SVG graphic is available in the APK's asset directory. If 
 
 The main place where the SVG graphics are later used is in the `MapFragment` implementation. It uses a [`TileOverlay`](http://developer.android.com/reference/com/google/android/gms/maps/model/TileOverlay.html) and registers multiple `TileProvider` implementations of type `SVGTileProvider` class. The `SVGTileProvider` uses the previously shown `SVGBuilder` in order to draw the currently shown floor onto the map.
 
-</code></pre>java
+<pre><code class="language-groovy">
 public SVGTileProvider(File file, float dpi) throws IOException {
     // ...
 
@@ -387,7 +387,7 @@ Glide is an image loading and caching library that comes with extensions to othe
 
 One interesting detail in this class is the `VariableWidthImageLoader` implementation:
 
-</code></pre>java
+<pre><code class="language-groovy">
 // ...
 private static final Pattern PATTERN = Pattern.compile("__w-((?:-?\\d+)+)__");
 // ...
