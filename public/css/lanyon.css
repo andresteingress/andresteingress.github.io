@@ -82,7 +82,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 @media (min-width: 56rem) {
   .container {
-    max-width: 38rem;
+    max-width: 46rem;
   }
 }
 
@@ -207,7 +207,7 @@ a.sidebar-nav-item:focus {
 .sidebar-toggle {
   position: absolute;
   top:  1rem;
-  left: 1rem;
+  right: 1rem;
   display: block;
   width: 2.2rem;
   padding: .5rem .65rem;
@@ -548,6 +548,7 @@ a.pagination-item:hover {
 .theme-base-0e .related-posts li a:hover {
   color: #aa759f;
 }
+
 
 /* Brown */
 .theme-base-0f .sidebar,
