@@ -11,7 +11,7 @@ status: publish
 type: post
 published: true
 ---
-The [GPars library](https://github.com/GPars/GPars) is a great way to add concurrency to your Groovy code. It equips Groovy projects with powerful concurrency concepts like _parallel collections_, _map reduce_ operations, _actors_  and _dataflow variables_.
+The [GPars library](https://github.com/GPars/GPars) is a great way to add concurrency supporting constructs to your Groovy code. It equips Groovy projects with powerful concurrency concepts like _parallel collections_, _map reduce_ operations, _actors_  and _dataflow variables_.
 
 ### Adding the GPars dependency
 
