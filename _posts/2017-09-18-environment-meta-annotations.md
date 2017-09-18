@@ -26,13 +26,13 @@ In the case of the `@Profile` annotation it means that you - as a library or fra
 
 ### Example
 
-Let‘s assume we have a „development stage“ where we have certain beans only eligible in the developers local environment. 
+Let‘s assume we have a "development stage" where we have certain beans only eligible in the developers local environment. 
 
 One way to define a bean only valid in development phase, is to define the `@Profile` annotation on that component:
 
 <pre><code class="language-groovy">
 @Component
-@Profile(„development“)
+@Profile("development")
 public class ApplicationBootstrap { ... }
 </code></pre>
 
@@ -44,11 +44,11 @@ The same can also be achieved with a custom meta-annotation:
 @Target(value={TYPE})
 @Retention(value=RUNTIME)
 @Documented
-@Profile(„development“)
+@Profile("development")
 public @interface Development {}
 </code></pre>
 
-Note that the `@Development` annotation has the `@Profile(„development“)` annotation applied. With this custom annotation we could refactor the previous code sample just like that:
+Note that the `@Development` annotation has the `@Profile("development")` annotation applied. With this custom annotation we could refactor the previous code sample just like that:
 
 <pre><code class="language-groovy">
 @Component
