@@ -1,4 +1,4 @@
-—
+---
 layout: post
 title: „Environment Meta-Annotations“
 categories:
@@ -8,7 +8,7 @@ tags: []
 status: publish
 type: post
 published: true
-—
+---
 
 Starting with Spring 3.1, the framework introduced a new `@Profile` [annotation](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/context/annotation/Profile.html) - along with the introduction of the new environment abstraction.
 
