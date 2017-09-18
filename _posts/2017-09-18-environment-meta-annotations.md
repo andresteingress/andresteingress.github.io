@@ -1,6 +1,6 @@
 ---
 layout: post
-title: „Environment Meta-Annotations“
+title: Environment Meta-Annotations
 categories:
 - java
 - spring
