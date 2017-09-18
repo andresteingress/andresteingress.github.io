@@ -30,7 +30,7 @@ Let‘s assume we have a „development stage“ where we have certain beans onl
 
 One way to define a bean only valid in development phase, is to define the `@Profile` annotation on that component:
 
-<pre><code class="language-java">
+<pre><code class="language-groovy">
 @Component
 @Profile(„development“)
 public class ApplicationBootstrap { ... }
@@ -40,7 +40,7 @@ The `AppplicationBootstrap` bean would therefore be only registered once the dev
 
 The same can also be achieved with a custom meta-annotation:
 
-<pre><code class="language-java">
+<pre><code class="language-groovy">
 @Target(value={TYPE})
 @Retention(value=RUNTIME)
 @Documented
@@ -50,7 +50,7 @@ public @interface Development {}
 
 Note that the `@Development` annotation has the `@Profile(„development“)` annotation applied. With this custom annotation we could refactor the previous code sample just like that:
 
-<pre><code class="language-java">
+<pre><code class="language-groovy">
 @Component
 @Development
 public class ApplicationBootstrap { ... }
