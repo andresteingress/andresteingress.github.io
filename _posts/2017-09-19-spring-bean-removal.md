@@ -45,7 +45,7 @@ Don't get confused by the implementation of the `BeanFactoryPostProcessor` here.
 
 For every [BeanDefinition](https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/beans/factory/config/BeanDefinition.html) we try to determine its current scope. Luckily, there is a `getScope()` method on every bean definition that can be used for that.
 
-Once the scope is one of our to-be-excluded scopes, we can simply call `removeBeanDefinition(String)` from the [BeanDefinitionRegistry](https://docs.spring.io/spring/docs/current/javadoc-api/org/springframework/beans/factory/support/BeanDefinitionRegistry.html) interface, which we as we get the `ConfigurableListableBeanFactory` as an argument to `postProcessBeanFactory` our single method we have to implement with the `BeanFactoryPostProcessor` interface:
+Once the scope is one of our to-be-excluded scopes, we can simply call `removeBeanDefinition(String)` from the [BeanDefinitionRegistry](https://docs.spring.io/spring/docs/current/javadoc-api/org/springframework/beans/factory/support/BeanDefinitionRegistry.html) interface, which we get with `ConfigurableListableBeanFactory` as an argument to `postProcessBeanFactory` our single method we have to implement with the `BeanFactoryPostProcessor` interface:
 
 <pre><code class="language-groovy">
 if (beanDefinition != null && isWebScope(beanDefinition.getScope())) {
@@ -90,7 +90,7 @@ public class UserService {
 
 Spring needs to replace the logical `RequestInformation` reference on every request. This is done via AOP proxies. The proxy is injected like a singleton bean but implements the logic to fallback to the correct scope to delegate to the actual reference. 
 
-In order to find more about the HTTP scope bean proxing provided by Spring, [ScopedProxyUtils](https://docs.spring.io/spring/docs/current/javadoc-api/org/springframework/aop/scope/ScopedProxyUtils.html) is a good starting point. This is the Spring's utility class to create scoped proxies. When having a look at the method `createScopedProxy` it is visible Spring would create actually two beans for our `requestInformation` bean. The proxy bean would get the name `requestInformation`, the target bean gets the name `scopedTarget.requestInformation`. 
+In order to find more about the HTTP scope bean proxing provided by Spring, [ScopedProxyUtils](https://docs.spring.io/spring/docs/current/javadoc-api/org/springframework/aop/scope/ScopedProxyUtils.html) is a good starting point. This is Spring's utility class to create scoped proxies. When having a look at the method `createScopedProxy` we see that Spring will create actually two beans for our `requestInformation` bean. The proxy bean would get the name `requestInformation`, the target bean gets the name `scopedTarget.requestInformation`. 
 
 All of that is necessary to understand that there are actually two bean definitions in the bean registry for HTTP scoped beans.
 
