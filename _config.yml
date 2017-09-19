@@ -1,28 +1,29 @@
-# Dependencies
-markdown: 		  redcarpet
-
-highlighter:      pygments
-
 # Permalinks
-permalink:        /:year/:month/:day/:title
+permalink:      /:year/:month/:day/:title
 
 # Setup
-title:            Blog
-tagline:          'JVM Stuff.'
-description:      'Andre Steingress'
-url:              http://blog.andresteingress.com
-twitter:          asteingr
+title:          JVM. Blog.
+paginate:       5
+url:            "http://blog.andresteingress.com"
 
+# Assets
+sass:
+  sass_dir:     _sass
+  style:        :compressed
+
+# Build settings
+markdown:       kramdown
+
+# About
 author:
-  name:           'Andre Steingress'
-  url:            https://twitter.com/asteingr
-
-paginate:         5
+  name:         Andre Steingress
+  url:          http://blog.andresteingress.com
 
 # Custom vars
-version:          0.4.2.beta
-
+version:        3.4.1
 github:
-  repo:           https://github.com/andresteingress
+  repo:         https://github.com/chesterhow/tale
 
-encoding:         utf-8
+# Gems
+gems:
+  - jekyll-paginate

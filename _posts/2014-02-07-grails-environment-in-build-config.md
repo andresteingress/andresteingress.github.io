@@ -15,7 +15,7 @@ As of Grails 2.3 it is possible to use the `Environment` class everywhere in `Bu
 
 Recently I came across an issue with the UI performance plugin (like mentioned by someone [on the Grails user list](http://grails.1312388.n4.nabble.com/UI-Performance-NoSuchMethodError-td1385924.html)) where we needed to exclude dependencies to be only used in the `test` environment. Before Grails 2.3.x it was only possible to use the `Environment` class inside the `dependencies` or `plugins` closure:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 
 dependencies {
 	
@@ -41,23 +41,23 @@ plugins {
     test ":code-coverage:1.2.7"
     test ":geb:0.9.2"
 }
-</code></pre>
+{% endhighlight %}
 
 This little trick was possible because the closure was evaluated at a point of time where the `Environment` already had been initialized. Something along the lines of
 
-<pre><code class="language-groovy">
+{% highlight java %}
 grails.server.port.http = 8080
 
 Environment.executeForEnvironment(Environment.DEVELOPMENT)  {
     grails.server.port.http = 8082	
 }
-</code></pre>
+{% endhighlight %}
 
 wouldn't have been successful caused by the `Environment` class not being initialized at runtime.
 
 This behaviour has been [fixed in Grails 2.3](http://jira.grails.org/browse/GRAILS-4260), the BuildConfig DSL has even been extended to support the _environments block_ feature. We can use it to specify environment-specific dependencies blocks or other BuildConfig configuration settings:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 environments {
 	test {
 		dependencies {
@@ -68,7 +68,7 @@ environments {
 		}
 	}
 }
-</code></pre>
+{% endhighlight %}
 
 ### Conclusion
 

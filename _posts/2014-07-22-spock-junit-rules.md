@@ -22,7 +22,7 @@ JUnit provides a way to intercept the test suite and test method execution by pr
 
 For example, the `TestName` rule implementation can be used to have access to the test case name in a test method at runtime.
 
-<pre><code class="language-groovy">
+{% highlight java %}
 public class NameRuleTest {
   @Rule
   public TestName name = new TestName();
@@ -37,7 +37,7 @@ public class NameRuleTest {
     assertEquals("testB", name.getMethodName());
   }
 }
-</code></pre>
+{% endhighlight %}
 
 ### Spock and JUnit Rules
 
@@ -47,7 +47,7 @@ As its name implies, the `TemporaryFolder` rule gives a convenient way to create
 
 This makes testing my `AttachmentService` very slick:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 @TestFor(AttachmentService)
 @Mock([Attachment])
 class AttachmentServiceSpec extends Specification {
@@ -70,7 +70,7 @@ class AttachmentServiceSpec extends Specification {
           file == tempFile
     }
 }
-</code></pre>
+{% endhighlight %}
 
 As you can see in the code above, the `TemporaryFolder` can be used to create a new file with the `newFile` method. If we wanted to create a new folder, there is also a `newFolder` method available. We do not have to specify any temporary folder or do any cleanup work, this is all done by the rule implementation itself.
 

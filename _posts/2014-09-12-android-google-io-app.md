@@ -21,7 +21,7 @@ This article will not talk about the implementation of the wearable version, I w
 
 I have to say that the Android version was of particular interest for me, so I decided to go on with the Android modules `build.gradle` dependencies section that holds all the external dependencies that are needed by the implementation:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 dependencies {
     wearApp project(':Wearable')
 
@@ -50,7 +50,7 @@ dependencies {
     compile 'com.google.http-client:google-http-client-gson:+'
     compile 'com.google.apis:google-api-services-drive:+'
 }
-</code></pre>
+{% endhighlight %}
 
 As you can see in the code snippet above, several external dependencies have been included. 
 
@@ -58,9 +58,9 @@ As you can see in the code snippet above, several external dependencies have bee
 
 Let's start with the first dependency that gained my attention:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 compile 'com.google.android.apps.dashclock:dashclock-api:+'
-</code></pre>
+{% endhighlight %}
 
 The [Android dash-clock project](https://code.google.com/p/dashclock/wiki/API) comes with an alternative lock screen clock widget implementation that can be used to show additional status items. Showing additional information on the lock screen is done by implementing so-called `DashClockExtension` extension descendant classes, as described in the [`DashClockExtension` documentation](http://api.dashclock.googlecode.com/git/reference/com/google/android/apps/dashclock/api/DashClockExtension.html). Although this API looked pretty interesting, I couldn't find any use for it in the Google I/O application and also removing it from the dependencies did work, so I guess it might have been planned to use it, but actually it was never implemented.
 
@@ -68,15 +68,15 @@ The [Android dash-clock project](https://code.google.com/p/dashclock/wiki/API) c
 
 Next up is Google's JSON library: [Gson](https://code.google.com/p/google-gson/):
 
-<pre><code class="language-groovy">
+{% highlight java %}
 compile 'com.google.code.gson:gson:2.+'
-</code></pre>
+{% endhighlight %}
 
 The Google I/O app's main purpose is the give an overview of all the scheduled talks at Google I/O and also allow some interaction for the user to give feedback about visited sessions. Gson is used to parse JSON that comes from Google's web services and contains the entire conference data.
 
 One particular piece of code that shows some Gson usage is the `ConferenceDataHandler`. This handler basically is responsible for parsing most of the JSON data that holds information about the scheduled conference sessions, speakers, etc. Instead of parsing the JSON content directly to an object tree, it registers "handlers" for every JSON property in a map:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 mHandlerForKey.put(DATA_KEY_ROOMS, mRoomsHandler = new RoomsHandler(mContext));
 mHandlerForKey.put(DATA_KEY_BLOCKS, mBlocksHandler = new BlocksHandler(mContext));
 mHandlerForKey.put(DATA_KEY_TAGS, mTagsHandler = new TagsHandler(mContext));
@@ -88,11 +88,11 @@ mHandlerForKey.put(DATA_KEY_EXPERTS, mExpertsHandler = new ExpertsHandler(mConte
 mHandlerForKey.put(DATA_KEY_HASHTAGS, mHashtagsHandler = new HashtagsHandler(mContext));
 mHandlerForKey.put(DATA_KEY_VIDEOS, mVideosHandler = new VideosHandler(mContext));
 mHandlerForKey.put(DATA_KEY_PARTNERS, mPartnersHandler = new PartnersHandler(mContext));
-</code></pre>
+{% endhighlight %}
 
 With the registered handlers set up, it parses the JSON response body property by property in `processDataBody`:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 private void processDataBody(String dataBody) throws IOException {
     JsonReader reader = new JsonReader(new StringReader(dataBody));
     JsonParser parser = new JsonParser();
@@ -118,22 +118,22 @@ private void processDataBody(String dataBody) throws IOException {
         reader.close();
     }
 }
-</code></pre>
+{% endhighlight %}
 
 When we have a look at one of the handler classes, let's say at `SessionsHandler`, we will see that it not only encapsulates the code for parsing the session JSON objects, but also code for building so-called "content provider operations". The [`ContentProviderOperation`](http://developer.android.com/reference/android/content/ContentProviderOperation.html) class is a class from the Android SDK that is used to build content provider actions such as inserting, updating or deleting entities stored by a content provider. The handler classes provide methods to directly create content provider operations based on the current state of an entity. E.g. if a session is new, needs to be updated or deleted, its `makeContentProviderOperations` method from the handler class will create the appropriate operation. Let's have a look now how actually parsing JSON is done for the `SessionsHandler`:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 @Override
 public void process(JsonElement element) {
     for (Session session : new Gson().fromJson(element, Session[].class)) {
         mSessions.put(session.id, session);
     }
 }
-</code></pre>
+{% endhighlight %}
 
 The code is quite slick. It uses an array of `Session` model classes as GSON target type and GSON will create the instances and populate the available properties from the JSON values:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 public class Session {
     public String id;
     public String url;
@@ -203,7 +203,7 @@ public class Session {
         return false;
     }
 }
-</code></pre>
+{% endhighlight %}
 
 What's interesting about this class (and the other model classes) is the `getImportHashCode` method. This method is needed to find out about changes that might have been done on already processed entities and is actually a main method to be used by the data sync logic implemented by the `SyncAdapter`.
 
@@ -211,13 +211,13 @@ What's interesting about this class (and the other model classes) is the `getImp
 
 Next up in our list of dependencies is the [Google APIs client library](https://code.google.com/p/google-api-java-client/) and its Android extension. Both libraries are used in conjunction with the Google Plus API from the next dependency
 
-<pre><code class="language-groovy">
+{% highlight java %}
 compile 'com.google.apis:google-api-services-plus:+'
-</code></pre>
+{% endhighlight %}
 
 to fetch the latest announcements via the `AnnouncementsFetcher` class. Once the announcements are fetched from the Google+ profile, they are stored by the content provider `ScheduleProvider`:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 Plus plus = new Plus.Builder(httpTransport, jsonFactory, null)
         .setApplicationName(NetUtils.getUserAgent(mContext))
         .setGoogleClientRequestInitializer(
@@ -256,7 +256,7 @@ for (Activity activity : activities.getItems()) {
             .withValue(Announcements.ANNOUNCEMENT_URL, activity.getUrl())
             .build());
 }
-</code></pre>
+{% endhighlight %}
 
 Again, the `ContentProviderOperation` builder methods are used to create the appropriate operations and return them to the class client.
 
@@ -264,16 +264,16 @@ Again, the `ContentProviderOperation` builder methods are used to create the app
 
 Next up is a very interesting dependency: the [Android SVG library](https://github.com/japgolly/svg-android):
 
-<pre><code class="language-groovy">
+{% highlight java %}
 compile 'com.github.japgolly.android:svg-android:2.0.6'
-</code></pre>
+{% endhighlight %}
 
 The SVG Android project adds support for showing scalable vector graphic files in an Android application. In the Google I/O application it is used to show the location of different floors in the Google I/O venue.
 
 One place to have a look at SVG processing is the `ConferenceDataHandler` implementation, again, a handler class:
 
 
-<pre><code class="language-groovy">
+{% highlight java %}
 private void processMapOverlayFiles(Collection<Tile> collection, boolean downloadAllowed) throws IOException, SVGParseException {
     boolean shouldClearCache = false;
     ArrayList<String> usedTiles = Lists.newArrayList();
@@ -324,13 +324,13 @@ private void processMapOverlayFiles(Collection<Tile> collection, boolean downloa
 
     MapUtils.removeUnusedTiles(mContext, usedTiles);
 }
-</code></pre>
+{% endhighlight %}
 
 The code looks if the SVG graphic is available in the APK's asset directory. If so, it copies the file to a custom directory. If not, it downloads the SVG and uses the svg-android library to validate if it is a valid SVG graphic.
 
 The main place where the SVG graphics are later used is in the `MapFragment` implementation. It uses a [`TileOverlay`](http://developer.android.com/reference/com/google/android/gms/maps/model/TileOverlay.html) and registers multiple `TileProvider` implementations of type `SVGTileProvider` class. The `SVGTileProvider` uses the previously shown `SVGBuilder` in order to draw the currently shown floor onto the map.
 
-<pre><code class="language-groovy">
+{% highlight java %}
 public SVGTileProvider(File file, float dpi) throws IOException {
     // ...
 
@@ -369,7 +369,7 @@ public byte[] getTileImageData(int x, int y, int zoom) {
     }
     return mStream.toByteArray();
 }
-</code></pre>
+{% endhighlight %}
 
 As can be seen in the code above, the method `getTileImageData` applies some scaling and translating, but in the end it draws the `mSvgPicture` onto a newly created `Canvas` and writes it to the resulting `ByteArrayOutputStream`. In order to enhance performance on creating the tile graphics, there is the `CachedTileProvider` implementation that uses a disk LRU cache to cache results on disk.
 
@@ -379,15 +379,15 @@ I found it very refreshing to see an application of the svg-android library in a
 
 Another third party library in use is [Glide](https://github.com/bumptech/glide):
 
-<pre><code class="language-groovy">
+{% highlight java %}
 compile files('../third_party/glide/library/libs/glide-3.2.0a.jar')
-</code></pre>
+{% endhighlight %}
 
 Glide is an image loading and caching library that comes with extensions to other commonly used libraries such as `OkHttp` and `Volley`. In the Google I/O application the `Glide` API is encapsulated in the `ImageLoader` class. 
 
 One interesting detail in this class is the `VariableWidthImageLoader` implementation:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 // ...
 private static final Pattern PATTERN = Pattern.compile("__w-((?:-?\\d+)+)__");
 // ...
@@ -412,7 +412,7 @@ protected String getUrl(String model, int width, int height) {
     }
     return model;
 }
-</code></pre>
+{% endhighlight %}
 
 The `VariableWidthImageLoader` is used by Glide in order to return a customized URL that should be used for a given width and height. The implementation above looks for an image indicator in the current URL (think of `model` as being an URL to an image) that might look like `__w-200-400-800__`. If this indicator is available it replaces it with `w<desiredWith>` to actually fetch an image with a width that is actually larger than the requested width.
 

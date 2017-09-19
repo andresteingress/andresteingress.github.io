@@ -37,7 +37,7 @@ Running `vagrant init` will create a template `Vagrantfile` in the current direc
 
 `Vagrantfile` is a file written in a Ruby DSL and it contains the configuration of our custom box:
 
-</code></pre>ruby
+{% highlight ruby %}
 Vagrant.configure("2") do |config|
   # Defines the Vagrant box name, download URL, IP and hostname
   config.vm.define :vagrant do |vagrant|
@@ -50,7 +50,7 @@ Vagrant.configure("2") do |config|
     vagrant.vm.hostname = "vagrant.dcl"
   end
 end
-</code></pre>
+{% endhighlight %}
 
 The configuration specifies the pre-defined box `precise64` as "parent" vm box. In addition, it specifies the URL under which this box can be
  downloaded.
@@ -72,7 +72,7 @@ provisioning is to write shell scripts. An advanced way would be to use tools su
 
 We decided to use plain shell scripts and added a shell-script called `provision.sh` to our `Vagrantfile` configuration:
 
-</code></pre>ruby
+{% highlight ruby %}
 Vagrant.configure("2") do |config|
 
   config.vm.provision :shell, :inline => "
@@ -90,11 +90,11 @@ Vagrant.configure("2") do |config|
     vagrant.vm.hostname = "vagrant.dcl"
   end
 end
-</code></pre>
+{% endhighlight %}
 
 The `provision.sh` shell-script defines all the commands to install Java and run the Solr instance:
 
-</code></pre>bash
+{% highlight shell %}
 #! /bin/bash
 
 ##### VARIABLES #####
@@ -194,7 +194,7 @@ apt-get autoremove -y # remove obsolete packages
 # Create .provision_check for the script to check on during a next vargant up.
 echo "[vagrant provisioning] Creating .provision_check file..."
 touch .provision_check
-</code></pre>
+{% endhighlight %}
 
 The provisioning process starts with the definition of some variables and the check for the `.provision_check` file. This file will be touched
  once the provisioning process has gone through successfully. All files within the directory containing the `Vagrantfile` will be available
@@ -203,10 +203,10 @@ allows to configure more of these so-called _synced folders_ but for our purpose
 
 After the file check, `sources.list` will be updated and the following lines will be added at the beginning of the file:
 
-</code></pre>bash
+{% highlight shell %}
 sudo sed -i -e '1ideb mirror://mirrors.ubuntu.com/mirrors.txt precise main restricted universe multiverse\ndeb mirror://mirrors.ubuntu.com/mirrors.txt precise-updates main restricted universe multiverse\ndeb mirror://mirrors.ubuntu.com/mirrors.txt precise-backports main restricted universe multiverse\ndeb mirror://mirrors.ubuntu.com/mirrors.txt precise-security main restricted universe multiverse\n' /etc/apt/sources.list
 sudo apt-get update
-</code></pre>
+{% endhighlight %}
 
 The `deb mirror:...` entries are used to optimize the selected apt-get mirror. This will result in the selection of the fastest available mirror
 without any hard-coded local preliminaries.
@@ -214,9 +214,9 @@ without any hard-coded local preliminaries.
 The next lines are pretty straight-forward. The `ppa:webupd8team/java` repository is used to fetch Oracle JDK 7u51. As the JDK installer comes
 with a modal confirmation dialog, the following lines are needed:
 
-</code></pre>bash
+{% highlight shell %}
 echo oracle-java7-installer shared/accepted-oracle-license-v1-1 select true | sudo /usr/bin/debconf-set-selections
-</code></pre>
+{% endhighlight %}
 
 This quietly confirms and installs the JDK automatically.
 
@@ -224,12 +224,12 @@ Next up is Apache Solr installation. The Solr 4.7.1 zip is downloaded and gets e
 configuration is run with `java -jar start.jar`. This starts a Jetty instance. The script uses the following code to monitor when bootstrapping
 is done:
 
-</code></pre>bash
+{% highlight shell %}
 sleep 1
 while ! grep -m1 'Registered new searcher' < /tmp/solr-server-log.txt; do
     sleep 1
 done
-</code></pre>
+{% endhighlight %}
 
 Once the message "Registered new searcher" appears we can safely assume the Solr instance is started.
 

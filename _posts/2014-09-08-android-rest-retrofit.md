@@ -19,7 +19,7 @@ Before we can declare our interface and start making REST requests, we need to c
 
 I put this setup code into our Dagger application module:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 @Provides
 @Singleton
 public AppConnector providesAppConnector() {
@@ -38,7 +38,7 @@ public AppConnector providesAppConnector() {
 
     return restAdapter.create(AppConnector.class);
 }
-</code></pre>
+{% endhighlight %}
 
 Usually the `RestAdapter` defaults to parsing JSON responses (utilizing Google's GSON library), but in our case we needed to adapt the pre-defined GSON converter slightly, this shouldn't irritate in this example. The endpoint is the base URL which is used for all the REST requests. The HTTP client in use is [OkHttpClient](http://square.github.io/okhttp/), another great project from Square, actually worth another blog post. It supports loading content from multiple IPs if single hosts aren't available for some reason and also does HTTP response caching based on the given response headers, if so configured. That's it for our Retrofit configuration.
 
@@ -46,7 +46,7 @@ Usually the `RestAdapter` defaults to parsing JSON responses (utilizing Google's
 
 Once the `RestAdapter` is available, it can be used to instantiate proxy implementations for your Java REST interfaces. So let's first create a simple REST Java interface:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 public interface AppConnector {
 
   @Headers("Cache-Control: max-age=14400")
@@ -54,13 +54,13 @@ public interface AppConnector {
   Contents getContents(@Path("app-id") String appId);
 
 }
-</code></pre>
+{% endhighlight %}
 
 The example above is taken from one of our production apps (with only a little change). With this interface, calling `restAdapter.create(AppConnector.class)` returns a REST client object (proxy) that implements `AppConnector` and that does all the content parsing and conversion into Java objects for us. This works for plain Java types, collection types and custom Java classes that are used as return types and/or parameter types.
 
 The example above actually makes a synchronous request. In fact, we do use asynchronous requests in our application. Going from synchronous to asynchronous requests only needs a little change:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 public interface AppConnector {
 
   @Headers("Cache-Control: max-age=14400")
@@ -68,7 +68,7 @@ public interface AppConnector {
   void getContents(@Path("app-id") String appId, Callback<Contents> callback);
 
 }
-</code></pre>
+{% endhighlight %}
 
 For aynchronous requests a second parameter is introduced to our interface method called `callback`. The `Callback` instance is called once the request has succeeded or failed. We can also go reactive. Retrofit integrates with [RxJava](https://github.com/ReactiveX/RxJava) and allows to return `rx.Observable` instances that enfore reactive programming in your Android code :-).
 

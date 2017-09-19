@@ -15,17 +15,17 @@ When reading the blog post a trick came to my mind that was once mentioned by Bu
 
 Burt said he often replaces the standard configuration in `BuildConfig.groovy`
 
-<pre><code class="language-groovy">
+{% highlight java %}
 grails.project.class.dir = "target/classes"
 grails.project.test.class.dir = "target/test-classes"
 grails.project.test.reports.dir = "target/test-reports"
-</code></pre>
+{% endhighlight %}
 
 with
 
-<pre><code class="language-groovy">
+{% highlight java %}
 grails.project.work.dir = "target"
-</code></pre>
+{% endhighlight %}
 This has the advantage that all generated classes, including plugin-classes, are saved in a single directory. This is really cool as installed plugins would otherwise be saved and cached in the `~/.grails/` directory.
 
 ![Grails Work Dir Target](/assets/grails-clean.png)

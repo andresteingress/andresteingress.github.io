@@ -31,7 +31,7 @@ In order to create a custom persistence listener, we just have to extend `Abstra
 up with:
 
 
-<pre><code class="language-groovy">
+{% highlight java %}
 @Log4j
 class PrincipalPersistenceListener extends AbstractPersistenceEventListener {
 
@@ -100,7 +100,7 @@ class PrincipalPersistenceListener extends AbstractPersistenceEventListener {
                 eventType.isAssignableFrom(ValidationEvent)
     }
 }
-</code></pre>
+{% endhighlight %}
 
 As you can see in the code above, the implementation intercepts the `PreInsert`, `PreUpdate` and `PreDelete` events. If any of these event types is thrown, the code checks the affected 
 domain object for the existence of either the `userCreated` or `userUpdated` property. If available, it uses the `springSecurityService` to access the currently logged-in principal and 
@@ -108,7 +108,7 @@ uses its `uuid` property, as this is the unique identifier of our users in this 
 
 To register the `PrincipalPersistenceListener` and attach it to a Grails datastore, we need to add the following code to `BootStrap.groovy`:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 def ctx = grailsApplication.mainContext
 ctx.eventTriggeringInterceptor.datastores.each { key, datastore ->
 
@@ -117,7 +117,7 @@ ctx.eventTriggeringInterceptor.datastores.each { key, datastore ->
 
     ctx.addApplicationListener(listener)
 }
-</code></pre>
+{% endhighlight %}
 
 To make this work, the `springSecurityService` needs to be injected, the same is true for `grailsApplication`. 
 

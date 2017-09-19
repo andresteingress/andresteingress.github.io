@@ -27,7 +27,7 @@ That's how we named the new plugin. Right now the audit log mechanism registers 
 
 As the time of writing, the plugin supports the following configuration variables:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 // All Hibernate audit log configuration variables
 auditLog.disabled = false        // globally disable audit logging
 
@@ -42,11 +42,11 @@ auditLog.defaultIgnore = []      // optional list of globally excluded propertie
 // audit log persistence settings
 auditLog.tablename = null        // custom AuditLog table name, defaults to "audit_log"
 auditLog.truncateLength = null   // maximum length for property values after String conversion
-</code></pre>
+{% endhighlight %}
 
 The `auditLog.disabled` switch is global one to turn off audit logging for the entire application. If it is `false` an additional step is needed to enable audit logging for a particular domain class:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 class Person {
 
   static auditable = true
@@ -57,11 +57,11 @@ class Person {
   static constraints = {
   }
 }
-</code></pre>
+{% endhighlight %}
 
 The domain class needs to have a static property `auditable = true`. Alternatively, the static property might be referring to a map to provide local configuration attributes:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 class Person {
 
   static auditable = [include: ['name']]
@@ -72,7 +72,7 @@ class Person {
   static constraints = {
   }
 }
-</code></pre>
+{% endhighlight %}
 
 As a default setting all domain class properties are enabled for audit logging as long as `include` (or `defaultInclude` in the `Config.groovy`) or `ignore` (or `defaultIgnore` in `Config.groovy`) aren't specified in the `auditable` map. In the case of `include` only the specified properties are logged, in the case of `exclude` all other persistent properties are logged.
 
@@ -80,7 +80,7 @@ As a default setting all domain class properties are enabled for audit logging a
 
 Once the audit log is enabled for a domain class all insert/update/delete operations will be kept track of by the plugin in the `audit_log` table. Actually the table comes as GORM domain class `AuditLogEvent` that is supplied by the plugin. For every property values that changes a new `AuditLogEvent` is created. Here are the domain class properties:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 class AuditLogEvent {
 
   Date dateCreated
@@ -95,13 +95,13 @@ class AuditLogEvent {
   String oldValue
   String newValue
 }
-</code></pre>
+{% endhighlight %}
 
 All properties should be self speaking except for the `actor` and the `uri` properties (I guess). The `actor` property has been introduced to keep track of the principal (name) that triggered the event. In the configuration options above the `actorClosure` was shown that can be specified to retrieve the principal name from the HTTP request or session. The `uri` contains the web URI that was used to initially trigger the domain class change.
 
 Here is a testcase method that shows how the `AuditLogEvent` will be filled when a new `Person` object is saved to the DB:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 @Test
 void testInsertEvent() {
   def p = new Person(name: "Andre", surName: "Steingress").save(flush: true)
@@ -118,7 +118,7 @@ void testInsertEvent() {
   assert auditLogEvent.persistedObjectId == p.id as String
   assert auditLogEvent.propertyName == 'name'
 }
-</code></pre>
+{% endhighlight %}
 
 As the `AuditLogEvent` class is a pure Grails domain class its dynamic methods can be used for querying the audit log table.
 

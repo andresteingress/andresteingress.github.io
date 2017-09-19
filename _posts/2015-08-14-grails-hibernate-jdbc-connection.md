@@ -12,7 +12,7 @@ published: true
 ---
 At our company we are utilising the well-known [Quartz library and Grails plugin](https://grails.org/plugin/quartz) for our batch jobs in Grails applications. When going throgh the server log files of our production server I lately came acress this error:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 org.apache.tomcat.jdbc.pool.ConnectionPool abandon
 WARNING: Connection has been abandoned PooledConnection[com.mysql.jdbc.JDBC4Connection@650599cb]:java.lang.Exception
         at org.apache.tomcat.jdbc.pool.ConnectionPool.getThreadDump(ConnectionPool.java:967)
@@ -28,7 +28,7 @@ WARNING: Connection has been abandoned PooledConnection[com.mysql.jdbc.JDBC4Conn
         at grails.plugins.quartz.QuartzDisplayJob.execute(QuartzDisplayJob.groovy:29)
         at org.quartz.core.JobRunShell.run(JobRunShell.java:207)
         at org.quartz.simpl.SimpleThreadPool$WorkerThread.run(SimpleThreadPool.java:560)
-</code></pre>
+{% endhighlight %}
 
 <p>
 The beginning of the stack-trace showed that the exception was thrown by a Quartz worker thread - so how come the current DB connection was abandoned?
@@ -77,7 +77,7 @@ So the goal was to rewrite the long-running batch jobs so that they disconnect a
 
 First thing we did in the Quartz job was to disable the automatic Hibernate session creation via the `sessionRequired` property:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 class SomeJob {
 
   static triggers = {
@@ -93,30 +93,30 @@ class SomeJob {
 
   // ...
 }
-</code></pre>
+{% endhighlight %}
 
 In order to get a connection from the DB pool we injected the `javax.sql.DataSource` and rewrote the code so that it would use the created Hibernate session (instead of the Grails provided ones):
 
-<pre><code class="language-groovy">
+{% highlight java %}
 def session = sessionFactory.openSession(dataSource.connection)
-</code></pre>
+{% endhighlight %}
 
 All the HQL queries and Hibernate operations would be rewritten to be running over this particular session. 
 
 Keeping the session open for the entire life-time of the job implies flushing and clearing the session from time to time to avoid running in to performance or out-of-memory issues. As suggested in the [Hibernate Documentation](https://docs.jboss.org/hibernate/orm/3.3/reference/en/html/batch.html), the session is flushed after a certain nubmer of entities processed:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 protected void refreshJDBCConnection(Session session) {
     session.flush()
     session.clear()
 
     // ...
   }
-</code></pre>
+{% endhighlight %}
 
 Exactly at this pace in the code, we added the code that would take the current connection, close it, and return it to the database connection pool:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 protected void refreshJDBCConnection(Session session) {
     session.flush()
     session.clear()
@@ -127,7 +127,7 @@ protected void refreshJDBCConnection(Session session) {
     
     session.reconnect(dataSource.connection)
   }
-</code></pre>
+{% endhighlight %}
 
 The code above will get the JDBC connection out of the session and uses the `dataSource` to obtain a new database connection and reconnect it with the existing session. With this we can keep the abandoned connection setting and ensure that the job is not aborted after the configured aboandonment time.
 

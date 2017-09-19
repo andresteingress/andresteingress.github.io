@@ -30,31 +30,31 @@ Let‘s assume we have a "development stage" where we have certain beans only el
 
 One way to define a bean only valid in development phase, is to define the `@Profile` annotation on that component:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 @Component
 @Profile("development")
 public class ApplicationBootstrap { ... }
-</code></pre>
+{% endhighlight %}
 
 The `AppplicationBootstrap` bean would therefore be only registered once the development environment/profile is active.
 
 The same can also be achieved with a custom meta-annotation:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 @Target(value={TYPE})
 @Retention(value=RUNTIME)
 @Documented
 @Profile("development")
 public @interface Development {}
-</code></pre>
+{% endhighlight %}
 
 Note that the `@Development` annotation has the `@Profile("development")` annotation applied. With this custom annotation we could refactor the previous code sample just like that:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 @Component
 @Development
 public class ApplicationBootstrap { ... }
-</code></pre>
+{% endhighlight %}
 
 We could even further reduce the code in case we also decided to add even the `@Component` annotation to `@Development`. However, there is also a lot for keeping the meaning of `@Development` simple and clear, dedicated only to the purpose of defining the development environment. 
 

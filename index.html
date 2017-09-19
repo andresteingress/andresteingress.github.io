@@ -1,46 +1,32 @@
 ---
 layout: default
+title: Home
 ---
 
-<div class="posts">
+<div class="catalogue">
   {% for post in paginator.posts %}
-  <div class="post">
-    <h1 class="post-title">
-      <a href="{{ post.url }}">
-        {{ post.title }}
-      </a>
-    </h1>
+    <a href="{{ post.url | prepend: site.url }}" class="catalogue-item">
+      <div>
+        <time datetime="{{ post.date }}" class="catalogue-time">{{ post.date | date: "%B %d, %Y" }}</time>
+        <h1 class="catalogue-title">{{ post.title }}</h1>
+        <div class="catalogue-line"></div>
 
-    <div class="post-date">
-      <span class="post-date-text">{{ post.date | date_to_string }}</span>
+        <p>
+          {{ post.content | truncatewords: 30 | strip_html }}
+        </p>
 
-
-      {% for tag in post.categories %}
-        <button class="button-xsmall button-blue pure-button category">{{ tag }}</button>
-      {% endfor %}
-
-      <span class="post-comments-text"><i class="fa fa-comment"></i> <a href="{{site.url}}{{post.url}}/#disqus_thread"></a></span>
-
-    </div>
-
-    {{ post.content }}
-  </div>
+      </div>
+    </a>
   {% endfor %}
 </div>
 
 <div class="pagination">
-  {% if paginator.next_page %}
-    <a class="pagination-item older" href="/page{{paginator.next_page}}">Older</a>
-  {% else %}
-    <span class="pagination-item older">Older</span>
-  {% endif %}
   {% if paginator.previous_page %}
-    {% if paginator.page == 2 %}
-      <a class="pagination-item newer" href="/">Newer</a>
-    {% else %}
-      <a class="pagination-item newer" href="/page{{paginator.previous_page}}">Newer</a>
-    {% endif %}
-  {% else %}
-    <span class="pagination-item newer">Newer</span>
+    <a href="{{ paginator.previous_page_path | prepend: site.url }}" class="left arrow">&#8592;</a>
   {% endif %}
+  {% if paginator.next_page %}
+    <a href="{{ paginator.next_page_path | prepend: site.url }}" class="right arrow">&#8594;</a>
+  {% endif %}
+
+  <span>{{ paginator.page }}</span>
 </div>

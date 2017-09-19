@@ -63,9 +63,9 @@ Now let's have a look at how Java-based Spring configuration can be used in a Gr
 
 Let's assume we have a package `my.app.config` that holds all configuration classes. In a Grails application we need to add this packacke in `Config.groovy` to the `grails.spring.bean.packages` bean scanning path list. 
 
-<pre><code class="language-groovy">
+{% highlight java %}
 grails.spring.bean.packages = ['my.app.config']
-</code></pre>
+{% endhighlight %}
 
 Voilà, now we can use the annotations described above inside the `my.app.config` package. The classes can either be implemented as Groovy or Java classes.
 
@@ -79,18 +79,18 @@ In the case of the Reactor project, we're already provided with a pre-defined co
 
 The `@EnableRector` annotation uses the `@Import` annotation to import a default configuration into our `@Configuration` class:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Import(ReactorBeanDefinitionRegistrar.class)
 public @interface EnableReactor {
     // ...
 }
-</code></pre>
+{% endhighlight %}
 
 The `ReactorBeanDefinitionRegistrar` uses another cool feature of the Java-based Spring configuration. It implements the `o.s.context.annotation.ImportBeanDefinitionRegistrar` interface to register beans in the current application context if not already defined by the user configuration.
 
-<pre><code class="language-groovy">
+{% highlight java %}
 public class ReactorBeanDefinitionRegistrar implements ImportBeanDefinitionRegistrar {
 
   private static final String DEFAULT_ENV_NAME = "reactorEnv";
@@ -106,21 +106,21 @@ public class ReactorBeanDefinitionRegistrar implements ImportBeanDefinitionRegis
     }
   }
 }
-</code></pre>
+{% endhighlight %}
 
 The `ImportBeanDefinitionRegistrar` implementation can be used along `@Configuration` classes as annotation parameters for the `@Import` annotation in our configuration class:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 @Configuration
 @EnableReactor
 class ReactorConfiguration {
 
 }
-</code></pre>
+{% endhighlight %}
 
 To add a `WorkQueueAsyncTaskExecutor` bean to this configuration we simply have to provide a `@Bean` annotated method:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 @Configuration
 @EnableReactor
 class ReactorConfiguration {
@@ -134,7 +134,7 @@ class ReactorConfiguration {
       .setWaitStrategy(new SleepingWaitStrategy()) 
   }
 }
-</code></pre>
+{% endhighlight %}
 
 Since the method is named `taskExecutor` our bean has the same name. And of course, we could use arbitrary Java code to initialize our bean. Once defined, we can refer to `taskExecutor` in every configuration artefact of our application, let it be `resources.groovy`, `resources.xml` or any other configuration files.
 
@@ -142,7 +142,7 @@ Please don't confuse the `Environment` parameter with the `org.springframework.c
 
 If we have a look at our code example above, we could decided to move all the builder method arguments to our `app.properties` file. We can use the `@PropertySource` configuration annotation to include this file in our current configuration:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 @Configuration
 @PropertySource('classpath:/my/app/config/app.properties')
 @EnableReactor
@@ -160,11 +160,11 @@ class ReactorConfiguration {
       .setWaitStrategy(new SleepingWaitStrategy()) 
   }
 }
-</code></pre>
+{% endhighlight %}
 
 As can be seen above, the `queue.name` and `queue.backlog` settings in the `app.properties` file can be accessed via the `org.springframework.core.env.Environment` bean. This bean needs to be autowired in our configuration to access the message resources. This shows another impressive feature of Spring's Java-based configuration: `@Configuration` classes are themselves treated as beans. This means we can use for example `@Autowired` to inject beans into our `@Configuration` class. The [Spring documentation](http://docs.spring.io/spring/docs/4.0.2.BUILD-SNAPSHOT/spring-framework-reference/htmlsingle/#beans-annotation-config) shows an even better example:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 @Configuration
 public class ServiceConfig {
 
@@ -205,11 +205,11 @@ public static void main(String[] args) {
   TransferService transferService = ctx.getBean(TransferService.class);
   transferService.transfer(100.00, "A123", "C456");
 }
-</code></pre>
+{% endhighlight %}
 
 We can even auto-wire `@Configuration` classes themselves:
 
-<pre><code class="language-groovy">
+{% highlight java %}
 @Configuration
 public class ServiceConfig {
 
@@ -222,7 +222,7 @@ public class ServiceConfig {
     return new TransferServiceImpl(repositoryConfig.accountRepository());
   }
 }
-</code></pre>
+{% endhighlight %}
 
 These examples show that the Java-based configuration approach can provide us with much more modularity and reusability than using (the already mighty) Spring bean Groovy DSL which is, by the way, [part of Spring 4](http://docs.spring.io/spring/docs/4.0.2.BUILD-SNAPSHOT/spring-framework-reference/htmlsingle/#_groovy_bean_definition_dsl). As every Grails application is a Spring application, we can use this approach to better structure application provided beans.
 
