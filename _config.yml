@@ -3,7 +3,7 @@ permalink:      /:year/:month/:day/:title
 
 # Setup
 title:          JVM. Blog.
-paginate:       5
+paginate:       7
 url:            "http://blog.andresteingress.com"
 
 # Assets
