@@ -1,6 +1,6 @@
 ---
 layout: post
-title: AssertJ
+title: Quick Tip - AssertJ
 categories:
 - java
 - spring
