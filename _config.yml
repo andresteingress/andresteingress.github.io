@@ -27,3 +27,4 @@ github:
 # Gems
 gems:
   - jekyll-paginate
+  - jekyll-feed
