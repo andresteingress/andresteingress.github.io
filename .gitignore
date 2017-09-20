@@ -33,6 +33,8 @@ nbproject
 *.komodoproject
 .komodotools
 
+deploy.sh
+
 # grunt-html-validation
 validation-status.json
 validation-report.json
