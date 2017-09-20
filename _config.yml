@@ -25,6 +25,10 @@ version:        3.4.1
 github:
   repo:         https://github.com/chesterhow/tale
 
+# Feed
+feed:
+  path:         atom.xml
+
 # Gems
 plugins:
   - jekyll-paginate
