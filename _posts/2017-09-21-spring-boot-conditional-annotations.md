@@ -8,14 +8,14 @@ categories:
 tags: []
 status: publish
 type: post
-published: false
+published: true
 ---
 
 One of the outstanding features of Spring Boot is without doubt its auto-configuration capability. However, auto-configuration is implemented upon another great Spring feature: conditional annotations. 
 
 ### @Conditional Annotations
 
-Spring 3.1 came with support for the environment abstraction. Along came the `@Profile` annotation that we talked about in one of the [last blog posts](http://blog.andresteingress.com/2017/09/18/environment-meta-annotations).
+Spring 3.1 came with support for the environment abstraction. Along came the `@Profile` annotation. We talked about it in one of the [last blog posts](http://blog.andresteingress.com/2017/09/18/environment-meta-annotations).
 
 However, Spring 4.0 introduced a new mechanism on which since then `@Profile` is based: the `@Conditional` annotation and the `Condition` interface.
 
@@ -68,7 +68,7 @@ Spring Boot takes conditional annotations to a whole new level. It comes with va
 
 [ConditionalOnWebApplication](https://docs.spring.io/spring-boot/docs/current/api/org/springframework/boot/autoconfigure/condition/ConditionalOnWebApplication.html) can be used to define beans that only exist if the application is executed in a JEE-based servlet-context/web application context. For example, when you are developing a Spring Boot based JSF application, you could think about defining a custom annotation `@Web` which can use `@ConditionalOnWebApplication` as meta-annotation, which works without problems by the way:
 
-{% highlighting java %}
+{% highlight java %}
 ...
 @ConditionalOnWebApplication
 public @interface Web { .. }
@@ -78,7 +78,7 @@ public @interface Web { .. }
 
 [ConditionalOnProperty](https://docs.spring.io/spring-boot/docs/current/api/org/springframework/boot/autoconfigure/condition/ConditionalOnProperty.html) can be used to register beans only if certain configuration properties are being found with the specified values. This is useful if you have the case where you want to activate certain beans based on a value in the application.properties file(s). In that case, it is even enough to simply specify the configuration property, if it is `false` or not given at all, it will not register the affected beans:
 
-{% highlighting java %}
+{% highlight java %}
 @Configuration
 @ConditionalOnProperty("my.feature.active")
 public class MyFeatureConfiguration { ... }
