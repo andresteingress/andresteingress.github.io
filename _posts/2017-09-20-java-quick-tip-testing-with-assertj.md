@@ -116,4 +116,4 @@ Besides the core module, AssertJ also comes with an assertion generator that can
 
 ### Summary
 
-All in all, I can highly recommend AssertJ so far. Once being a bit familiar with its Api, it is far easier to use as Hamcrest or plain JUnit assertions with a much more readable DSL. All that comes with a good typing system making it easy for IDEs like Eclipse and IntelliJ to provide proper auto-completion. If you have never heard of that library, you should definitly have a look!
+All in all, I can highly recommend AssertJ so far. Once being a bit familiar with its Api, it is far easier to use then Hamcrest or plain JUnit assertions with a much more readable DSL. All that comes with a good typing system making it easy for IDEs like Eclipse and IntelliJ to provide proper auto-completion. If you have never heard of that library, you should definitly have a look!
