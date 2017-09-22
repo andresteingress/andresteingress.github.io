@@ -9,7 +9,7 @@ status: publish
 type: post
 published: true
 ---
-We are currently using Spring Data JPA in a project and really love it. Lately we came across a feature we sort of oversaw so far in Spring Data's excellent documentation and we definitely wanted to sure with you. 
+We are currently using Spring Data JPA in a project and really love it. Lately we came across a feature we sort of oversaw so far in Spring Data's excellent documentation and we definitely wanted to share with you. 
 
 Before we start, we first have to create some context. We use Spring Data in a Spring Boot based JSF application. We often have the requirement to show data in a Data-Table (for that we use [PrimeFaces](http://primefaces.org/)) based on the field values of a search form. In our code we follow the approach to create an empty domain object in the view class acting as our backing object that provides us with the search parameters. 
 
