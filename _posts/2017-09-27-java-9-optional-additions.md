@@ -20,7 +20,7 @@ _Hint_: in case you wonder about the method references in this article, it is us
 
 `Optional::ifPresentOrElse` is used on `Optional` instances to execute a lambda being a `java.util.function.Consumer` if the value exists, or a `Runnable` - or so-called empty action - if the value does not exist. 
 
-{% highlight java %}
+{% highlight shell %}
 
 jshell> Optional<String> optString = Optional.of("test")
 jshell> optString.ifPresentOrElse(s -> System.out.println(s), () -> System.out.println("not there"))
@@ -34,7 +34,7 @@ In the code snippet from above, the first lamda defines the `Consumer` implement
 
 The use-case for `Optional::or` should be relatively self-explanatory. If called on an `Optional`, it returns the optional itself if its value exists or the `Optional` created by the given `java.util.function.Supplier` function ([JavaDoc](http://download.java.net/java/jdk9/docs/api/java/util/function/Supplier.html)).
 
-{% highlight java %}
+{% highlight shell %}
 
 jshell> Optional<String> optString = Optional.of("test")
 jshell> optString.or(() -> Optional.of("42"))
@@ -46,7 +46,7 @@ The code snippet above in fact does not use the given `Supplier` function which 
 
 As the return type of `or` is an `Optional`, it's perfectly valid to chain multipe `or` calls:
 
-{% highlight java %}
+{% highlight shell %}
 
 jshell> Optional.empty().
    ...> or(() -> Optional.empty()).
@@ -59,7 +59,7 @@ $6 ==> Optional[42]
 
 The `stream` method is the most useful addition (imho). If a value is present, it returns a `java.util.stream.Stream` instance containing only the optional value.
 
-{% highlight java %}
+{% highlight shell %}
 
 jshell> Optional<String> optString = Optional.of("test")
 jshell> optString.stream().forEach(elem -> System.out.println(elem));
