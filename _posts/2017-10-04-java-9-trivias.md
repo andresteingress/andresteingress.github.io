@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Java 9 - The Little Things
+title: Java 9 - Trivias
 categories:
 - java
 - java9
