@@ -15,7 +15,7 @@ Spring 5 introduces first-class support for Kotlin 1.1+. Besides Groovy, Kotlin 
 
 ### Kotlin Extension API
 
-With version 5 Pivatal releases a [Kotlin extension API](https://docs.spring.io/spring-framework/docs/5.0.0.RELEASE/kdoc-api/spring-framework/). Currently, those extensions are available for the following Spring framework packages:
+With version 5 Pivotal releases a [Kotlin extension API](https://docs.spring.io/spring-framework/docs/5.0.0.RELEASE/kdoc-api/spring-framework/). Currently, those extensions are available for the following Spring framework packages:
 
 * org.springframework.beans.factory
 * org.springframework.context.annotation
