@@ -30,7 +30,4 @@ feed:
   path:         atom.xml
 
 # Gems
-plugins:
-  - jekyll-paginate
-  - jekyll-feed
-  - jekyll-sitemap
+gems:           [jekyll-paginate, jekyll-feed, jekyll-sitemap]
