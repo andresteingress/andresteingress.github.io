@@ -47,9 +47,9 @@ One thing came to our attention here. It mentions "Java System properties" as on
 
 One of the system property values is `java.io.tmpdir`. It is defined to return the default temp file path. As those system properties are available via the `PropertySource` mechanism, we can simply use the temporary directory like a variable in our `properties` file:
 
-```
+{% highlight java %}
 spring.jpa.properties.hibernate.search.default.indexBase=${java.io.tmpdir}/lucene-index/
-```
+{% endhighlight %}
 
 `${java.io.tmpdir}` will create a `lucene-index` directory in the Java temporary file path, which is exactly what we tried to achieve. 
 
