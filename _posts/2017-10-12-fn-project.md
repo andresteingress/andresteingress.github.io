@@ -46,7 +46,7 @@ $ curl http://localhost:8080
 There is also a Docker image providing a graphical user interface for Fn, you can launch it with
 
 {% highlight shell %}
-docker run --rm -it --link functions:api -p 4000:4000 -e "API_URL=http://api:8080" fnproject/ui
+$ docker run --rm -it --link functions:api -p 4000:4000 -e "API_URL=http://api:8080" fnproject/ui
 {% endhighlight %}
 
 It provides a dashboard and a link to the Swagger [Fn Function API documentation](http://petstore.swagger.io/?url=https://raw.githubusercontent.com/fnproject/fn/master/docs/swagger.yml).
@@ -54,7 +54,7 @@ It provides a dashboard and a link to the Swagger [Fn Function API documentation
 Now we add our first function in Java and create the initial project structure with `fn init`:
 
 {% highlight shell %}
-$ ~/Development/projectfn » fn init --runtime java
+$ fn init --runtime java
 
         ______
        / ____/___
@@ -73,7 +73,7 @@ We specify the runtime type directly here, we could have also created our functi
 The resulting project structure is
 
 {% highlight shell %}
-$ ~/Development/projectfn » tree
+$  » tree
 .
 ├── func.yaml
 ├── pom.xml
@@ -95,7 +95,7 @@ $ ~/Development/projectfn » tree
 
 {% endhighlight %}
 
-Fn uses Maven in the background for packaging the function, so that's why the directory layout should look familiar for readers of this blog.
+Fn uses Maven in the background for packaging the function, so that's why the directory layout should look familiar to readers of this blog.
 
 That's how the generated `HelloFunction.java` looks like:
 
@@ -118,7 +118,7 @@ When we run this function with `fn run`, we get the following output
 
 {% highlight shell %}
 
-$ ~/Development/projectfn » fn run
+$ fn run
 Building image projectfn:0.0.1
 Sending build context to Docker daemon  13.82kB
 Step 1/11 : FROM fnproject/fn-java-fdk-build:jdk9-latest as build-stage
@@ -162,13 +162,13 @@ As you can see, it builds a Docker image from our function and directly runs it 
 `func.yaml` contains the function configuration. You can see that `HelloFunction::handleRequest` is defined as an entry point, together with the version string and the runtime type:
 
 {% highlight shell %}
-$ ~/Development/projectfn » cat func.yaml
+$ cat func.yaml
 version: 0.0.1
 runtime: java
 cmd: com.example.fn.HelloFunction::handleRequest
 {% endhighlight %}
 
-There is more to configure than that, but for our first example this should be okay.
+There is more to configure than that but for our first example this should be okay.
 
 `fn run` just executed our function, however, that was only for testing the function output. Let us deploy the function to our function container running on `localhost:8080`. Deploying a function register the function in the function container and creates a so-called route to the newly registered function. After this route is created, the function container news about the function and it its execution can be requested via a REST call.
 
@@ -178,9 +178,9 @@ Before we can do that, we have to set the `FN_REGISTRY` environment variable. It
 # If you haven't, login at Docker hub
 # $ docker login
 
-$ ~/Development/projectfn » export FN_REGISTRY=<your docker_id>
+$ export FN_REGISTRY=<your docker_id>
 
-$ ~/Development/projectfn » fn deploy --app projectfn
+$ fn deploy --app projectfn
 
 Deploying projectfn to app: my_function at path: /projectfn
 Bumped to version 0.0.4
@@ -228,7 +228,7 @@ When we deploy our function, we have to add the function to an application (here
 After our newly created application has been created and the function has been deployed, we can list our routes to see the actual REST URL for our function:
 
 {% highlight shell %}
-$ ~/Development/projectfn » fn routes list projectfn                                                             
+$ fn routes list projectfn                                                             
 path        image               endpoint
 /projectfn  appcaregmbh/projectfn:0.0.7 localhost:8080/r/projectfn/projectfn
 {% endhighlight %}
@@ -236,17 +236,17 @@ path        image               endpoint
 New we can call our function with `curl` or `fn call`
 
 {% highlight shell %}
-$ ~/Development/projectfn » curl localhost:8080/r/projectfn/projectfn
+$ curl localhost:8080/r/projectfn/projectfn
 Hello, world!
 
-$ ~/Development/projectfn » fn call projectfn /projectfn                                                         
+$ fn call projectfn /projectfn                                                         
 Hello, world!
 {% endhighlight %}
 
 Maybe you saw that our example function `HelloFunction` also took an input argument. We can `echo` this to our `curl` call:
 
 {% highlight shell %}
-~/Development/projectfn » echo 'test' | fn call projectfn /projectfn
+$ echo 'test' | fn call projectfn /projectfn
 Hello, test!
 {% endhighlight %}
 
@@ -300,14 +300,14 @@ As last example, we will show how to use this so-called completer together with 
 Start our function container on port 8080 again:
 
 {% highlight shell %}
-$ ~/Development/projectfn » fn start
+$ fn start
 {% endhighlight %}
 
 Start the completer container:
 
 {% highlight shell %}
 {% raw %}
-$ ~ » DOCKER_LOCALHOST=$(docker inspect --type container -f '{{.NetworkSettings.Gateway}}' functions)
+$ DOCKER_LOCALHOST=$(docker inspect --type container -f '{{.NetworkSettings.Gateway}}' functions)
 {% endraw %}
 
 $ docker run --rm  \ 
@@ -322,7 +322,7 @@ $ docker run --rm  \
 Do a `docker ps` to see if our two containers are running:
 
 {% highlight shell %}
-~ » docker ps
+$ docker ps
 CONTAINER ID        IMAGE                        COMMAND                  CREATED              STATUS              PORTS                              NAMES
 7126f034ccfa        fnproject/completer:latest   "/fnproject/completer"   38 seconds ago       Up 42 seconds       0.0.0.0:8081->8081/tcp             completer
 7ac2c2fb71b6        fnproject/functions          "preentry.sh ./fun..."   About a minute ago   Up About a minute   2375/tcp, 0.0.0.0:8080->8080/tcp   functions
@@ -331,11 +331,11 @@ CONTAINER ID        IMAGE                        COMMAND                  CREATE
 Create new function `primes`:
 
 {% highlight shell %}
-$ ~/Development/projectfn » mkdir primes
+$ mkdir primes
 ------------------------------------------------------------
-$ ~/Development/projectfn » cd primes
+$ cd primes
 ------------------------------------------------------------
-~/Development/projectfn/primes » fn init --runtime java appcaregmbh/primes
+$ fn init --runtime java appcaregmbh/primes
 Creating function at: /appcaregmbh/primes
 
         ______
@@ -400,26 +400,26 @@ path: /primes
 and create a new Fn app and run the function:
 
 {% highlight shell %}
-$ ~/Development/projectfn/primes/appcaregmbh/primes » fn apps create primes-examplefn apps create primes-example
+$ fn apps create primes-examplefn apps create primes-example
 Successfully created app:  primes-example
 
-$ ~/Development/projectfn/primes/appcaregmbh/primes » fn deploy --app primes-example
+$ fn deploy --app primes-example
 {% endhighlight %}
 
 Now we have to configure our Flow function to talk to the completer we started just before:
 
 {% highlight shell %}
 {% raw %}
-$ ~/Development/projectfn/primes/appcaregmbh/primes »  DOCKER_LOCALHOST=$(docker inspect --type container -f '{{.NetworkSettings.Gateway}}' functions)
+$ DOCKER_LOCALHOST=$(docker inspect --type container -f '{{.NetworkSettings.Gateway}}' functions)
 {% endraw %}
  
-$ ~/Development/projectfn/primes/appcaregmbh/primes »  fn apps config set primes-example COMPLETER_BASE_URL "http://$DOCKER_LOCALHOST:8081"
+$ fn apps config set primes-example COMPLETER_BASE_URL "http://$DOCKER_LOCALHOST:8081"
 {% endhighlight %}
 
 Once we have set the `COMPLETER_BASE` configuration property, we have set up the Flow correctly. We can now run our function `/primes`:
 
 {% highlight shell %}
-$ ~/Development/projectfn/primes/appcaregmbh/primes » echo 42 | fn call primes-example /primes
+$ echo 42 | fn call primes-example /primes
 The 42th prime number is 181
 {% endhighlight %}
 
