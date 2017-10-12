@@ -14,15 +14,15 @@ At JavaOne 2017 this year, Oracle announced and open-sourced its own serverless 
 
 ### What's That?
 
-According to the [project homepage](http://fnproject.io), Fn is a _container native serverless platform_ for running functions. Maybe it is a bit too far fetched to call it a platform, however, it is a suite of tools, programs and libraries that allow for writing, testing and deploying functions on a FaaS (function-as-a-serivce} platform like AWS Lamda. You're not forced to do so, you can also run the functions locally or in any other public or private cloud (so you can run them basically everywhere).
+According to the [project homepage](http://fnproject.io), Fn is a _container native serverless platform_ for running functions. Maybe it is a bit too far fetched to call it a platform, however, it is a suite of tools, programs and libraries that allow for writing, testing and deploying functions on a FaaS (function-as-a-serivce) platform like AWS Lamda. You're not forced to do so, you can also run the functions locally or in any other public or private cloud (so you can run them basically everywhere).
 
-Although coming from Oracle, Fn does not only support Java but basically every programming language according to the documentation. The `fn init` command however hows the following platforms/file extensions: `.js, .rb, .py, .java, .go, .php, .rs, .cs, .fs`. 
+Although coming from Oracle, Fn does not only support Java but basically every programming language according to the documentation. The `fn init` command however shows the following platforms/file extensions: `.js, .rb, .py, .java, .go, .php, .rs, .cs, .fs`. 
 
 It's important to understand that the basic building block of Fn are containers. Every function defined is written and tested as a separate function and packaged in its own container. To be more precise, currently Docker is the primary technology for packaging and distribution (to Docker registries). However, according to Fn's github [FAQ](https://github.com/fnproject/fn/blob/master/docs/faq.md#which-languages-are-supported), the tool is build in a way so that it abstracts the actual container technology.
 
 ### The First Function
 
-Let's have a look how functions can be defined. One part of Projec Fn is the command line tool (CLI). In order to install it locally you can run
+Let's have a look how functions can be defined. One part of Fn is the command line tool (CLI). In order to install it locally you can run
 
 {% highlight shell %}
 curl -LSs https://raw.githubusercontent.com/fnproject/cli/master/install | sh
@@ -36,7 +36,7 @@ Once the script or binary is installed, you can run
 fn start
 {% endhighlight %}
 
-This will fire up a local server including an embedded database and message queue. Imagine this server is acting as a function container. It provides a function API so that deployed functions can be called and served via this server. The server is again a Docker container and it uses the image "fnproject/functions" for running the function container. Once started, you can access Fn functions under `localhost:8080`:
+This will fire up a local server including an embedded database and message queue. Imagine this server as a conceptual container routing to your functions. It also provides a function API for querying meta-data and executing other operations on behalf of the registered functions. The server is again a Docker container and it uses the image "fnproject/functions" for running the function container. Once started, you can access Fn functions under `localhost:8080`:
 
 {% highlight shell %}
 $ curl http://localhost:8080
