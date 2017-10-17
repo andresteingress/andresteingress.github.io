@@ -11,7 +11,7 @@ type: post
 published: true
 ---
 
-This article is about Spring Boot's [Flyway](https://flywaydb.org/) integration. Flyay is a tool for automating DB schema migration. It is open-source and favours simplicity and convention over configuration principles. 
+This article is about Spring Boot's [Flyway](https://flywaydb.org/) integration. Flyway is a tool for automating DB schema migration. It is open-source and favours simplicity and convention over configuration principles. 
 
 Flyway solves the issue of keeping track and executing database schema migrations. If you are using Hibernate, you might have heard or you might be using the `hibernate.hbm2ddl.auto` setting with `update`. This setting will automatically export updates to the database when the Hibernate `SessionFactory` is created. Relying on this setting is not favourable for production environments though as it might suffer from inflexibility in certain use-cases. Consider you need to run an SQL statement for pre-filling a newly created table. That's not something that can be done with Hibernate schema migrations. 
 
