@@ -6,7 +6,7 @@ permalink: /about/
 ---
 Hi! My name is Andre Steingress, I'm based in **Linz, Austria**.
 
-I'm a family guy (father of three) and passionate about programming ever since. I like developing **server-side applications** using <strong>Java</strong>, <strong>Groovy</strong>, <strong>Kotlin</strong> or other JVM-based programming languages. Apart from having a strong background in server-side technologies I nowadays prefer writing backends in <strong>React</strong> or <strong>Angular</strong>.
+I'm a family guy (father of three) and passionate about programming ever since. I like developing **server-side applications** using <strong>Java</strong>, <strong>Groovy</strong>, <strong>Kotlin</strong> or other JVM-based programming languages. Apart from having a strong background in server-side technologies I nowadays prefer writing frontends in <strong>React</strong> or <strong>Angular</strong>.
 
 Starting 2013, I am co-hosting the <a href="http://dtr.fm">Donau Tech Radio (DTR) podcast</a>. DTR is a periodically published podcast with over 130 episodes (as of 2017/09). It's one of the first and maybe the most popular podcast on software engineering and gadgets here in Austria.
 
