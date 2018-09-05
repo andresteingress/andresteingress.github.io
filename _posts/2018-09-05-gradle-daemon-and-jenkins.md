@@ -31,7 +31,7 @@ env.JENKINS_NODE_COOKIE = 'dontKillMe' // this is necessary for the Gradle daemo
 
 Jenkins uses the `BUILD_ID` or `JENKINS_NODE_COOKIE` environment variables to detect which child processes to kill after build completion. As we explicitly set the environment variable to something completely generic (`dontKillMe`), the child process won't be killed by Jenkins as the parent process can't link to it anymore. Be aware you need to set `JENKINS_NODE_COOKIE` in pipeline DSL scripts and **not** `BUILD_ID`.
 
-After we did the changes described above we ran into an issue with the [incremental Gradle build](https://docs.gradle.org/current/userguide/more_about_tasks.html#sec:up_to_date_checks) not updating the generated JUnit test XML files. As Gradle will only execute the `test` task whenever changes have been detected, it wouldn't generate new files on unmodified builds which causes the Jenkins JUnit plugin to fail, see [JENKINS-6268](https://issues.jenkins-ci.org/browse/JENKINS-6268).
+After we did the changes described above we ran into an issue with the [incremental Gradle build](https://docs.gradle.org/current/userguide/more_about_tasks.html#sec:up_to_date_checks) not updating the generated JUnit test XML files. As Gradle will only regenerate JUnit XML files whenever code changes have been detected, it wouldn't generate new files on unmodified builds which causes the Jenkins JUnit plugin to fail, see [JENKINS-6268](https://issues.jenkins-ci.org/browse/JENKINS-6268).
 
 We added the following `script` step to our Jenkinsfile in order to fix that annoyance:
 
