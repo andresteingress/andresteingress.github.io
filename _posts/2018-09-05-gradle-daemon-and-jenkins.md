@@ -17,13 +17,13 @@ The first fallacy I came across on various blog posts and StackOverflow answers 
 
 > Since Gradle 3.0, we enable Daemon by default and recommend using it for both developers' machines and Continuous Integration servers.
 
-As a matter of fact, as René Gröschke told us in a comment on our [latest podcast episode](https://dtr.fm/dtr164-kostenpflichtiges-java-und-gradle-plugins-entwickeln/#comments), it actually is emphazied to use the Gradle daemon _especially_ on CI servers. So how can this be done on Jenkins when using the Pipeline DSL Jenksfile?
+As a matter of fact, as René Gröschke told us in a comment on our [latest podcast episode](https://dtr.fm/dtr164-kostenpflichtiges-java-und-gradle-plugins-entwickeln/#comments), it actually is emphazied to use the Gradle daemon _especially_ on CI servers. So how can this be done on Jenkins when using the [Pipeline DSL Jenksfile](https://jenkins.io/doc/book/pipeline/syntax/)?
 
 ### Gradle Daemon on Jenkins
 
 As Jenkins is our CI server of choice, we needed to find a way to spawn the Gradle daemon from our pipeline builds without the Gradle daemon getting killed after the build was done. As it turned out there is separate section on [spawning processes from within the build](https://wiki.jenkins.io/display/JENKINS/Spawning+processes+from+build) in the Jenkins wiki.
 
-In our pipeline DSL we had to set the following environment variable:
+In our [Jenkinsfile](https://jenkins.io/doc/book/pipeline/syntax/) we had to set the following environment variable:
 
 ```groovy
 env.JENKINS_NODE_COOKIE = 'dontKillMe' // this is necessary for the Gradle daemon to be kept alive
@@ -52,4 +52,4 @@ And that's it. With these changes in place, our build now spawns Gradle daemons 
 
 ### Summary
 
-Running the Gradle daemon on CI servers makes sense in the most cases as your build gains [performance improvements](https://guides.gradle.org/performance/) through it. In addition, incremental builds are especially interesting with microservice architectures where there is a need to build many different modules (or even the root project including it's submodules) quite often (e.g. on every commit).
+Running the Gradle daemon on CI servers makes sense in most cases as your build [gains performance](https://guides.gradle.org/performance/). In addition, incremental builds are especially interesting with microservice architectures where there is a need to build many different modules (or even the root project including it's submodules) quite often (e.g. on every commit).
