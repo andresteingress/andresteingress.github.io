@@ -29,9 +29,9 @@ In our [Jenkinsfile](https://jenkins.io/doc/book/pipeline/syntax/) we had to set
 env.JENKINS_NODE_COOKIE = 'dontKillMe' // this is necessary for the Gradle daemon to be kept alive
 ```
 
-Jenkins uses the `BUILD_ID` or `JENKINS_NODE_COOKIE` environment variables to detect which child processes to kill after build completion. As we explicitly set the environment variable to something completely generic (`dontKillMe`), the child process won't be killed by Jenkins as the parent process can't link to it anymore. Be aware you need to set `JENKINS_NODE_COOKIE` in pipeline DSL scripts and **not** `BUILD_ID`.
+Jenkins uses the `BUILD_ID` or `JENKINS_NODE_COOKIE` environment variables to detect which child processes to kill after build completion. As we explicitly set the environment variable to something completely generic (`dontKillMe`), the child process won't be killed by Jenkins anymore. Be aware that you need to set `JENKINS_NODE_COOKIE` in pipeline DSL scripts and **not** `BUILD_ID`.
 
-After we did the changes described above we ran into an issue with the [incremental Gradle build](https://docs.gradle.org/current/userguide/more_about_tasks.html#sec:up_to_date_checks) not updating the generated JUnit test XML files. As Gradle will only regenerate JUnit XML files whenever code changes have been detected, it wouldn't generate new files on unmodified builds which causes the Jenkins JUnit plugin to fail, see [JENKINS-6268](https://issues.jenkins-ci.org/browse/JENKINS-6268).
+After we did the changes described above we ran into an issue with the [incremental Gradle build](https://docs.gradle.org/current/userguide/more_about_tasks.html#sec:up_to_date_checks) not updating the generated JUnit test XML files. As we have builds with no code changes in the particular service, the tests would not be run by Gradle which causes the Jenkins JUnit plugin to fail, see [JENKINS-6268](https://issues.jenkins-ci.org/browse/JENKINS-6268).
 
 We added the following `script` step to our Jenkinsfile in order to fix that annoyance:
 
@@ -48,7 +48,7 @@ steps {
 }
 ```
 
-And that's it. With these changes in place, our build now spawns Gradle daemons if necessary and takes full power of Gradle's incremental build and caching capabilities.
+And that's it. With these changes in place, our build now spawns Gradle daemons and takes full advantage of Gradle's incremental build and caching capabilities.
 
 ### Summary
 
